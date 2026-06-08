@@ -12,7 +12,6 @@ export const generarReporteAcademico = (stats, detailedData, options = {}) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 20;
 
-  // --- NORMALIZACIÓN DE DATOS ---
   // Soporta tanto el objeto global de dashboard como objetos planos de grupos/unidades
   const g = stats?.globales || stats || {};
 
@@ -25,7 +24,6 @@ export const generarReporteAcademico = (stats, detailedData, options = {}) => {
     { label: 'Total Estudiantes', value: g.total_estudiantes || g.total_alumnos || 0 }
   ];
 
-  // --- CABECERA ---
   doc.setFillColor(30, 41, 59); // Slate-800
   doc.rect(0, 0, pageWidth, 40, 'F');
 
@@ -40,7 +38,6 @@ export const generarReporteAcademico = (stats, detailedData, options = {}) => {
 
   let y = 55;
 
-  // --- SECCIÓN 1: RESUMEN EJECUTIVO ---
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
@@ -91,7 +88,6 @@ export const generarReporteAcademico = (stats, detailedData, options = {}) => {
 
   y += 20;
 
-  // --- SECCIÓN 2: ANÁLISIS DE COMPORTAMIENTO ---
   if ((stats.globales || stats.materias_criticas) && y < 240) {
     if (y > 220) { doc.addPage(); y = 20; }
     doc.setFontSize(16);
@@ -130,7 +126,6 @@ export const generarReporteAcademico = (stats, detailedData, options = {}) => {
     }
   }
 
-  // --- SECCIÓN 3: DETALLE POR ALUMNO ---
   doc.addPage();
   y = 20;
   doc.setFontSize(16);

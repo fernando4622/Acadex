@@ -98,7 +98,6 @@ async def inscribir_alumno(
             detail={"codigo": "CARRERA_INCOMPATIBLE", "mensaje": f"El alumno no pertenece a la carrera del grupo ({grupo_info['carrera_nombre']})."}
         )
 
-    # ── Validar solapamiento de horario del alumno ─────────────────────────
     horarios_nuevo = await conn.fetch(
         """SELECT dia_semana, hora_inicio, hora_fin FROM academ.horario_grupo WHERE grupo_id = $1""",
         grupo_id

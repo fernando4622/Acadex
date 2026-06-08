@@ -7,7 +7,6 @@ import {
 } from 'lucide-react'
 import { periodos as periodosApi, reportes as reportesApi, grupos as gruposApi, materias as materiasApi, docentes as docentesApi } from '../api/endpoints'
 
-// ─── Exportación CSV ──────────────────────────────────────────────────────────
 function exportCSV(data, filename) {
   if (!data.length) return
   const keys = Object.keys(data[0])
@@ -18,7 +17,6 @@ function exportCSV(data, filename) {
   URL.revokeObjectURL(url)
 }
 
-// ─── Barra de filtros reutilizable ────────────────────────────────────────────
 function FilterBar({ periodos, periodoId, onPeriodo, onBuscar, loading, extras }) {
   return (
     <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-wrap gap-3 items-end shadow-sm mb-5">
@@ -42,7 +40,6 @@ function FilterBar({ periodos, periodoId, onPeriodo, onBuscar, loading, extras }
   )
 }
 
-// ─── Tabla genérica ordenable ─────────────────────────────────────────────────
 function ReporteTable({ cols, data, csvName, emptyText = 'Sin resultados' }) {
   const [q, setQ] = useState('')
   if (!data) return null
@@ -103,7 +100,6 @@ function ReporteTable({ cols, data, csvName, emptyText = 'Sin resultados' }) {
   )
 }
 
-// ─── Badge de estatus ─────────────────────────────────────────────────────────
 function EstatusBadge({ v }) {
   const map = {
     APROBADO: 'bg-emerald-50 text-emerald-700',
@@ -117,7 +113,6 @@ function EstatusBadge({ v }) {
   return <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${map[v] || 'bg-slate-100 text-slate-500'}`}>{v}</span>
 }
 
-// ─── KPI Cards ────────────────────────────────────────────────────────────────
 function KpiRow({ items }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
@@ -131,9 +126,7 @@ function KpiRow({ items }) {
   )
 }
 
-// =============================================================================
 // TAB: R2 — Calificaciones por Grupo
-// =============================================================================
 function TabCalificacionesGrupo({ periodos }) {
   const [periodoId, setPeriodoId] = useState(null)
   const [grupos, setGrupos] = useState([])
@@ -214,9 +207,7 @@ function TabCalificacionesGrupo({ periodos }) {
   )
 }
 
-// =============================================================================
 // TAB: R3 — Reporte por Materia
-// =============================================================================
 function TabPorMateria({ periodos }) {
   const [periodoId, setPeriodoId] = useState(null)
   const [materiasList, setMateriasList] = useState([])
@@ -279,9 +270,7 @@ function TabPorMateria({ periodos }) {
   )
 }
 
-// =============================================================================
 // TAB: R7 — Índice de Reprobación
-// =============================================================================
 function TabIndiceReprobacion({ periodos }) {
   const [periodoId, setPeriodoId] = useState(null)
   const [data, setData] = useState(null)
@@ -322,9 +311,7 @@ function TabIndiceReprobacion({ periodos }) {
   )
 }
 
-// =============================================================================
 // TAB: R11 — Lista de Reprobados
-// =============================================================================
 function TabReprobados({ periodos }) {
   const [periodoId, setPeriodoId] = useState(null)
   const [grupos, setGrupos] = useState([])
@@ -389,9 +376,7 @@ function TabReprobados({ periodos }) {
   )
 }
 
-// =============================================================================
 // TAB: R13 — Estado de Captura
-// =============================================================================
 function TabEstadoCaptura({ periodos }) {
   const [periodoId, setPeriodoId] = useState(null)
   const [data, setData] = useState(null)
@@ -436,9 +421,7 @@ function TabEstadoCaptura({ periodos }) {
   )
 }
 
-// =============================================================================
 // PÁGINA PRINCIPAL — Centro de Reportes
-// =============================================================================
 const TABS = [
   { id: 'calificaciones-grupo', label: 'Calific. por Grupo', icon: BookOpen, desc: 'Todos los alumnos de un grupo con parciales y final' },
   { id: 'por-materia',          label: 'Por Materia',         icon: ClipboardCheck, desc: 'Todos los grupos de una materia cruzados' },

@@ -147,7 +147,6 @@ export default function Planes() {
     } catch { notify('Error al eliminar prerrequisito', 'error') }
   }
 
-  // ── Drag and Drop Handlers ───────────────────────────────────────────────
   const onDragStart = (e, item) => {
     setDraggedItem(item)
     e.dataTransfer.setData('application/json', JSON.stringify(item))

@@ -1,6 +1,4 @@
-# ==============================================================================
 # GENERAL (OS & IDEs)
-# ==============================================================================
 .DS_Store
 Thumbs.db
 .idea/
@@ -13,9 +11,7 @@ Thumbs.db
 !.env.example
 .antigravityignore
 
-# ==============================================================================
 # BACKEND (Python / FastAPI)
-# ==============================================================================
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -46,9 +42,7 @@ backend/tmp/
 backend/.pytest_cache/
 backend/alembic/versions/
 
-# ==============================================================================
 # FRONTEND (Node.js / React / Vite)
-# ==============================================================================
 # Dependencias
 node_modules/
 jspm_packages/
@@ -75,3 +69,7 @@ coverage/
 
 # Archivos generados dinámicamente o temporales
 *.tsbuildinfo
+
+# Pruebas y scripts en desarrollo
+test/
+frontend2/

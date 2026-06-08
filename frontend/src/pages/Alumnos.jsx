@@ -413,7 +413,6 @@ export default function Alumnos() {
   const alumnosActivos = filtrados.filter(a => a.activo)
   const alumnosInactivos = filtrados.filter(a => !a.activo)
 
-  // ── Crear ──
   async function crearAlumno(e) {
     e.preventDefault()
     setSaving(true)
@@ -436,7 +435,6 @@ export default function Alumnos() {
     finally { setSaving(false) }
   }
 
-  // ── Editar ──
   async function actualizarAlumno(e) {
     e.preventDefault()
     setSaving(true)
@@ -461,7 +459,6 @@ export default function Alumnos() {
     finally { setSaving(false) }
   }
 
-  // ── CSV Preview ──
   async function handleCSVPreview() {
     if (!csvFile) return
     setCsvLoading(true)
@@ -477,7 +474,6 @@ export default function Alumnos() {
     finally { setCsvLoading(false) }
   }
 
-  // ── CSV Confirm ──
   async function handleCSVConfirm() {
     if (!csvFile) return
     setCsvLoading(true)
@@ -497,7 +493,6 @@ export default function Alumnos() {
     finally { setCsvLoading(false) }
   }
 
-  // ── Baja ──
   async function handleBaja(a) {
     setSaving(true)
     try {
@@ -511,7 +506,6 @@ export default function Alumnos() {
     finally { setSaving(false) }
   }
 
-  // ── CSV Download ──
   function downloadCSVResult() {
     if (!csvResult?.resultados?.length) return
     const header = 'no_control,email,nip_provisional,nombre,curp\n'

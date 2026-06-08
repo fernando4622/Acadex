@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, AlertTriangle, CheckCircle, Info, XCircle, ChevronRight, Loader2, } from 'lucide-react'
 
-// ─── Badge de estado ──────────────────────────────────────────────────────────
 export function Badge({ estado, variant, className = '', children, size = 'sm' }) {
   const st = estado?.toUpperCase()
   const map = {
@@ -45,7 +44,6 @@ export function Badge({ estado, variant, className = '', children, size = 'sm' }
   )
 }
 
-// ─── Calificación destacada ───────────────────────────────────────────────────
 export function CalDisplay({ valor, max = 100, size = 'md' }) {
   if (valor === null || valor === undefined) {
     return <span className="text-slate-300 font-medium">—</span>
@@ -63,7 +61,6 @@ export function CalDisplay({ valor, max = 100, size = 'md' }) {
   return <span className={`${sizes[size] ?? sizes.md} ${color} tabular-nums`}>{num.toFixed(2)}</span>
 }
 
-// ─── Barra de ponderaciones ───────────────────────────────────────────────────
 export function PonderacionBar({ suma }) {
   const pct = Math.min(parseFloat(suma) || 0, 100)
   const falta = (100 - pct).toFixed(1)
@@ -92,13 +89,11 @@ export function PonderacionBar({ suma }) {
   )
 }
 
-// ─── Card ─────────────────────────────────────────────────────────────────────
 export function Card({ children, className = '', onClick, hover = false }) {
   const base = hover || onClick ? 'card-hover' : 'card'
   return <div className={`${base} ${className}`} onClick={onClick}>{children}</div>
 }
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
 export function StatCard({ label, value, sub, icon: Icon, trend, color = 'institucional', badge }) {
   const palettes = {
     brand: { bg: 'from-brand-600 to-brand-700', icon: 'bg-white/20 text-white', text: 'text-white', sub: 'text-brand-200' },
@@ -149,7 +144,6 @@ export function StatCard({ label, value, sub, icon: Icon, trend, color = 'instit
   )
 }
 
-// ─── Botón ────────────────────────────────────────────────────────────────────
 export function Btn({ children, variant = 'primary', size = 'md', loading, disabled, onClick, type = 'button', className = '', ...rest }) {
   const variants = {
     primary: 'btn-primary',
@@ -173,7 +167,6 @@ export function Btn({ children, variant = 'primary', size = 'md', loading, disab
   )
 }
 
-// ─── Dropdown ──────────────────────────────────────────────────────────────────
 export function Dropdown({ trigger, children, align = 'right' }) {
   const [open, setOpen] = useState(false)
   const ref = useRef()
@@ -204,7 +197,6 @@ export function DropdownItem({ children, onClick, icon: Icon, className = '' }) 
   )
 }
 
-// ─── Input ────────────────────────────────────────────────────────────────────
 export function Input({ label, error, hint, rightElement, className = '', ...props }) {
   return (
     <div className="space-y-1.5">
@@ -223,7 +215,6 @@ export function Input({ label, error, hint, rightElement, className = '', ...pro
   )
 }
 
-// ─── Select ───────────────────────────────────────────────────────────────────
 export function Select({ label, error, children, className = '', ...props }) {
   return (
     <div className="space-y-1.5">
@@ -236,7 +227,6 @@ export function Select({ label, error, children, className = '', ...props }) {
   )
 }
 
-// ─── Textarea ─────────────────────────────────────────────────────────────────
 export function Textarea({ label, error, ...props }) {
   return (
     <div className="space-y-1.5">
@@ -247,7 +237,6 @@ export function Textarea({ label, error, ...props }) {
   )
 }
 
-// ─── Modal ────────────────────────────────────────────────────────────────────
 export function Modal({ open, onClose, title, subtitle, children, size = 'md', footer, className = '' }) {
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden'
@@ -276,7 +265,6 @@ export function Modal({ open, onClose, title, subtitle, children, size = 'md', f
   )
 }
 
-// ─── Drawer ────────────────────────────────────────────────────────────────────
 export function Drawer({ open, onClose, title, subtitle, children, footer, className = '' }) {
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden'
@@ -304,7 +292,6 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, class
   )
 }
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
 export function Toast({ message, type = 'success', onClose, duration = 6000 }) {
   useEffect(() => { const t = setTimeout(onClose, duration); return () => clearTimeout(t) }, [onClose, duration])
   const styles = {
@@ -323,7 +310,6 @@ export function Toast({ message, type = 'success', onClose, duration = 6000 }) {
   )
 }
 
-// ─── Spinner ──────────────────────────────────────────────────────────────────
 export function Spinner({ size = 'md', full = true }) {
   const sizes = { sm: 'h-4 w-4', md: 'h-8 w-8', lg: 'h-12 w-12' }
   if (!full) return <Loader2 className={`animate-spin text-brand-500 ${sizes[size]}`} />
@@ -337,7 +323,6 @@ export function Spinner({ size = 'md', full = true }) {
   )
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
 export function EmptyState({ icon: Icon, title, description, action }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center px-4">
@@ -353,7 +338,6 @@ export function EmptyState({ icon: Icon, title, description, action }) {
   )
 }
 
-// ─── Error message ────────────────────────────────────────────────────────────
 export function ErrorMsg({ error }) {
   let msg = error?.response?.data?.detail?.mensaje
     ?? error?.response?.data?.detail
@@ -397,7 +381,6 @@ export function ErrorMsg({ error }) {
   )
 }
 
-// ─── Page header ──────────────────────────────────────────────────────────────
 export function PageHeader({ title, subtitle, actions, breadcrumb, icon: Icon }) {
   return (
     <div className="bg-darkerBlue border-b-4 border-yellow-600 px-8 h-[100px] flex items-center relative sticky top-0 z-20 shadow-lg">
@@ -431,7 +414,6 @@ export function PageHeader({ title, subtitle, actions, breadcrumb, icon: Icon })
   )
 }
 
-// ─── Tabla ────────────────────────────────────────────────────────────────────
 export function Table({ columns, data, onRowClick, empty }) {
   if (!data?.length) return empty ?? <EmptyState title="Sin datos" />
   return (
@@ -466,7 +448,6 @@ export function Table({ columns, data, onRowClick, empty }) {
   )
 }
 
-// ─── Confirm dialog ───────────────────────────────────────────────────────────
 export function ConfirmDialog({ open, onClose, onConfirm, title, message, confirmText = 'Confirmar', variant = 'danger', loading }) {
   return (
     <Modal open={open} onClose={onClose} title={title} size="sm"
@@ -482,7 +463,6 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message, confir
   )
 }
 
-// ─── Search input ─────────────────────────────────────────────────────────────
 export function SearchInput({ value, onChange, placeholder = 'Buscar...', className = '' }) {
   return (
     <div className={`relative ${className}`}>

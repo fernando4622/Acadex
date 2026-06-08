@@ -15,7 +15,6 @@ import asyncpg
 from app.database import get_pool, close_pool
 from app.errors import handle_pg_error
 
-# ── Routers ───────────────────────────────────────────────────────────────────
 from app.auth.router        import router as auth_router
 from app.routers.alumnos    import router as alumnos_router
 from app.routers.catalogos  import router as catalogos_router
@@ -38,7 +37,6 @@ from app.routers.reportes      import router as reportes_router
 from app.routers.administracion import router as administracion_router
 
 
-# ── Ciclo de vida ─────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: inicializar el pool de conexiones
@@ -48,7 +46,6 @@ async def lifespan(app: FastAPI):
     await close_pool()
 
 
-# ── Aplicación ────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="Sistema de Registro y Cálculo de Resultados Académicos",
     description="""
@@ -80,7 +77,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],        # En producción: especificar dominio del frontend
@@ -89,7 +85,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Manejador global de errores de PostgreSQL ─────────────────────────────────
 @app.exception_handler(asyncpg.PostgresError)
 async def postgres_error_handler(request: Request, exc: asyncpg.PostgresError):
     """
@@ -100,7 +95,6 @@ async def postgres_error_handler(request: Request, exc: asyncpg.PostgresError):
     return JSONResponse(status_code=http_exc.status_code, content={"detail": http_exc.detail})
 
 
-# ── Registro de routers ───────────────────────────────────────────────────────
 app.include_router(auth_router)
 app.include_router(alumnos_router)
 app.include_router(catalogos_router)
@@ -123,7 +117,6 @@ app.include_router(reportes_router)
 app.include_router(administracion_router)
 
 
-# ── Health check ──────────────────────────────────────────────────────────────
 @app.get("/health", tags=["Sistema"], include_in_schema=False)
 async def health_check():
     return {"status": "ok", "timestamp": datetime.now().isoformat()}

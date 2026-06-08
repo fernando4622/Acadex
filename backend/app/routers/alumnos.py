@@ -13,7 +13,6 @@ from app.schemas.alumno import (
 router = APIRouter(prefix="/alumnos", tags=["Alumnos"])
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
 
 def _nip_from_fecha(fecha_nacimiento: str) -> str:
@@ -105,7 +104,6 @@ async def obtener_avance_mio(
     }
 
 
-# ── GET /alumnos ──────────────────────────────────────────────────────────────
 
 @router.get("", response_model=list[AlumnoResponse])
 async def listar_alumnos(
@@ -128,7 +126,6 @@ async def listar_alumnos(
     return [dict(r) for r in rows]
 
 
-# ── POST /alumnos ─────────────────────────────────────────────────────────────
 
 @router.post("", status_code=201, response_model=AlumnoCreatedResponse)
 async def crear_alumno(

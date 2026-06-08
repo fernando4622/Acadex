@@ -67,7 +67,6 @@ async def marcar_todas_leidas(
     return {"mensaje": "Todas las notificaciones marcadas como leídas."}
 
 
-# ── Función interna para crear notificaciones (usada por otros routers) ────────
 
 async def crear_notificacion(
     conn: Connection,

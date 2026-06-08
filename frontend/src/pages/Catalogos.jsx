@@ -207,7 +207,6 @@ export default function Catalogos() {
     inactivas: mats.filter(m => !m.activa).length
   }
 
-  // ── Importación CSV ──
   async function handlePreviewMaterias() {
     if (!importFile) return
     setSaving(true)

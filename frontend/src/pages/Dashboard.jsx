@@ -15,7 +15,6 @@ import { generarReporteAcademico } from '../utils/reportGenerator'
 import { useNavigate } from 'react-router-dom'
 import { Modal, Btn } from '../components/ui'
 
-// ─── Componente Calendario Interactivo ──────────────────────────────────────
 function CalendarSection({ events = [], title = "Calendario de Actividades" }) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState(null)
@@ -127,7 +126,6 @@ function CalendarSection({ events = [], title = "Calendario de Actividades" }) {
   )
 }
 
-// ─── Paleta de colores institucional ─────────────────────────────────────────
 const PALETTE = {
   aprobado: '#10b981',
   reprobado: '#f43f5e',
@@ -142,7 +140,6 @@ const TIPO_LABEL = {
   PARTICIPACION: 'Participación', ASISTENCIA: 'Asistencia',
 }
 
-// ─── Tooltip común para Nivo ──────────────────────────────────────────────────
 const NivoTooltip = ({ value, label, color }) => (
   <div className="bg-white shadow-xl rounded-xl px-4 py-2 text-sm border border-slate-100">
     <span className="font-bold" style={{ color }}>{label}: </span>
@@ -150,9 +147,7 @@ const NivoTooltip = ({ value, label, color }) => (
   </div>
 )
 
-// =============================================================================
 // DASHBOARD ADMIN
-// =============================================================================
 function AdminDashboard() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -378,9 +373,7 @@ function AdminDashboard() {
   )
 }
 
-// =============================================================================
 // DASHBOARD DOCENTE — KPIs de rendimiento relativo con Nivo
-// =============================================================================
 function DocenteDashboard() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -525,9 +518,7 @@ function DocenteDashboard() {
   )
 }
 
-// =============================================================================
 // DASHBOARD ALUMNO — posicionamiento + en curso
-// =============================================================================
 function AlumnoDashboard() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -638,9 +629,7 @@ function AlumnoDashboard() {
   )
 }
 
-// =============================================================================
 // PÁGINA PRINCIPAL
-// =============================================================================
 export default function Dashboard() {
   const { user, isAdmin, isDocente, isAlumno } = useAuth()
 

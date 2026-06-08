@@ -15,7 +15,6 @@ from app.helpers.materia_carrera import (
 
 router = APIRouter(tags=["Catálogos"])
 
-# ── MATERIAS: listado enriquecido ─────────────────────────────────────────────
 
 _SQL_MATERIA_LIST = """SELECT
                m.id, m.id AS materia_id, m.clave, m.nombre, m.creditos, m.horas_teoria, m.horas_practica, m.activa,
@@ -55,11 +54,9 @@ async def listar_vinculos_materia(
     )
     return [dict(r) for r in rows]
 
-# ── DOCENTES ──────────────────────────────────────────────────────────────────
 # (Removidos: CRUD principal está en app.routers.docentes)
 
 
-# ── MATERIAS ──────────────────────────────────────────────────────────────────
 
 @router.get("/materias", response_model=list[MateriaResponse])
 async def listar_materias(
@@ -162,7 +159,6 @@ async def reactivar_materia(
     return {"mensaje": "Materia reactivada"}
 
 
-# ── PLANES DE ESTUDIO ──────────────────────────────────────────────────────────
 @router.get("/planes", response_model=list[dict])
 async def listar_todos_planes(
     conn: Connection = Depends(get_conn),
@@ -238,7 +234,6 @@ async def listar_materias_plan(
     )
     return [dict(r) for r in rows]
 
-# ── MAPA CURRICULAR (PLAN-MATERIA) ───────────────────────────────────────────
 @router.post("/materias/{materia_id}/vincular-plan", status_code=201)
 async def vincular_plan_materia(
     materia_id: int,
@@ -351,7 +346,6 @@ async def desvincular_materia(
     )
     return {"mensaje": "Materia desvinculada del plan"}
 
-# ── PRERREQUISITOS ────────────────────────────────────────────────────────────
 
 @router.get("/planes/materias/{pm_id}/prerrequisitos", response_model=list[PrerrequisitoResponse])
 async def listar_prerrequisitos(
@@ -421,7 +415,6 @@ async def eliminar_prerrequisito(
 
 
 
-# ── UNIDADES PLANTILLA (por materia) ───────────────────────────────────────────
 
 @router.get("/materias/{materia_id}/unidades", response_model=list[UnidadPlantillaResponse])
 async def listar_unidades_plantilla(
@@ -488,7 +481,6 @@ async def eliminar_unidad_plantilla(
         raise HTTPException(404, detail={"codigo": "NO_ENCONTRADO", "mensaje": "Unidad plantilla no encontrada."})
 
 
-# ── TIPOS DE ACTIVIDAD (catálogo gestionado por Admin) ─────────────────────────
 
 @router.get("/tipos-actividad")
 async def listar_tipos_actividad(
@@ -581,7 +573,6 @@ async def eliminar_tipo_actividad(
         raise HTTPException(404, detail={"codigo": "NO_ENCONTRADO", "mensaje": "Tipo de actividad no encontrado."})
 
 
-# ── CARRERAS ──────────────────────────────────────────────────────────────────
 
 @router.get("/carreras", response_model=list[CarreraResponse])
 async def listar_carreras(

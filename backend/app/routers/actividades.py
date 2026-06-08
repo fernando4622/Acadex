@@ -150,9 +150,7 @@ async def eliminar_actividad(
     return {"mensaje": "Actividad eliminada (baja lógica).", "advertencia": advertencia}
 
 
-# -----------------------------------------------------------------
 # Endpoint especial para alumnos: actividades de su inscripción
-# -----------------------------------------------------------------
 @router.get("/mis-actividades/{inscripcion_id}")
 async def mis_actividades(
     inscripcion_id: str,
@@ -179,9 +177,7 @@ async def mis_actividades(
     return [dict(r) for r in rows]
 
 
-# -----------------------------------------------------------------
 # Publicar actividades (docente marca calificaciones como visibles para alumnos)
-# -----------------------------------------------------------------
 @router.post("/actividades/{actividad_id}/publicar")
 async def publicar_actividad(
     actividad_id: int,

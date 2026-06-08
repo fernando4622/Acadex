@@ -12,9 +12,7 @@ from app.middleware.auth import (
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
-# =============================================================================
 # DASHBOARD ADMIN — usa v_analitica_admin + métricas globales
-# =============================================================================
 @router.get("/admin")
 async def get_admin_stats(
     conn: Connection = Depends(get_conn),
@@ -100,9 +98,7 @@ async def get_admin_stats(
     }
 
 
-# =============================================================================
 # DASHBOARD DOCENTE — usa v_analitica_docente
-# =============================================================================
 @router.get("/docente")
 async def get_docente_stats(
     conn: Connection = Depends(get_conn),
@@ -169,9 +165,7 @@ async def get_docente_stats(
     }
 
 
-# =============================================================================
 # DASHBOARD ALUMNO — usa v_analitica_alumno
-# =============================================================================
 @router.get("/alumno")
 async def get_alumno_stats(
     conn: Connection = Depends(get_conn),
@@ -240,9 +234,7 @@ async def get_alumno_stats(
         return {"error": str(e)}
 
 
-# =============================================================================
 # REPORTE DETALLADO — acceso Admin o Docente en su grupo
-# =============================================================================
 @router.get("/reporte-detallado")
 async def get_detailed_report(
     grupo_id: Optional[UUID] = None,
@@ -282,9 +274,7 @@ async def get_detailed_report(
     return [dict(r) for r in rows]
 
 
-# =============================================================================
 # ENDPOINT EXTRA: Tipos de actividad disponibles (ENUM)
-# =============================================================================
 @router.get("/tipos-actividad")
 async def tipos_actividad(
     conn: Connection = Depends(get_conn),

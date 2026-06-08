@@ -42,7 +42,6 @@ export default function Calificaciones() {
     setTimeout(() => setToast(null), 3000)
   }
 
-  // ── Carga inicial ─────────────────────────────────────────────────────────
   useEffect(() => {
     async function init() {
       const uIdNum = parseInt(unidadId)
@@ -62,7 +61,6 @@ export default function Calificaciones() {
     init()
   }, [grupoId, unidadId])
 
-  // ── Refrescar captura-pendiente después de guardar ────────────────────────
   async function refrescarCaptura() {
     try {
       console.log('Solicitando refresco de captura para unidad:', unidadId);
@@ -78,7 +76,6 @@ export default function Calificaciones() {
     console.log('Estado de captura actualizado:', captura);
   }, [captura]);
 
-  // ── Cargar calificaciones de la actividad seleccionada ────────────────────
   useEffect(() => {
     if (!act) return
     setLoading(true)
@@ -107,7 +104,6 @@ export default function Calificaciones() {
     }))
   }
 
-  // ── Guardar todas las calificaciones editadas ─────────────────────────────
   async function guardarTodo() {
     if (Object.keys(edited).length === 0) {
       notify('Sin cambios que guardar', 'info')
@@ -146,7 +142,6 @@ export default function Calificaciones() {
     }
   }
 
-  // ── Aplicar bonus de unidad ───────────────────────────────────────────────
 
   async function exportarPDF() {
     setSaving(true)
@@ -229,7 +224,6 @@ export default function Calificaciones() {
     )
   }
 
-  // ── Cálculo de progreso basado en registros actuales ──
   const completados = registros.filter(r => !r.pendiente).length
   const pendientesActuales = registros.filter(r => r.pendiente).length
   const totalActividadesEsperadas = acts.length * registros.length
@@ -260,7 +254,6 @@ export default function Calificaciones() {
 
       <div className="p-8 space-y-4">
 
-        {/* ── Banner progreso de la unidad completa ── */}
         <div className={`flex items-center gap-4 px-5 py-3.5 rounded-xl border
           ${unidadCompleta
             ? 'bg-emerald-50 border-emerald-200'
@@ -291,7 +284,6 @@ export default function Calificaciones() {
         </div>
 
 
-        {/* ── Selector de actividades ── */}
         <Card className="p-4">
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {acts.map((a, i) => {
@@ -320,7 +312,6 @@ export default function Calificaciones() {
           </div>
         </Card>
 
-        {/* ── Barra de progreso de esta actividad ── */}
         <div className="flex items-center justify-between text-sm">
           <span className="text-slate-600">
             <span className="font-semibold text-brand-700">{completados}</span> de {registros.length} alumnos con calificación en esta actividad
@@ -339,7 +330,6 @@ export default function Calificaciones() {
           </div>
         </div>
 
-        {/* ── Tabla de captura ── */}
         <Card className="overflow-hidden">
           {loading
             ? <Spinner />
@@ -441,7 +431,6 @@ export default function Calificaciones() {
           }
         </Card>
 
-        {/* ── Botones de navegación y guardado ── */}
         <div className="flex items-center justify-between pt-2">
           <div className="flex gap-2">
             <Btn variant="secondary" size="sm" disabled={actIdx === 0} onClick={() => setActIdx(i => i - 1)}>

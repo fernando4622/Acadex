@@ -129,7 +129,6 @@ export default function MisGrupoDetalle() {
 
       <div className="max-w-5xl mx-auto p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
-        {/* ── Tab: Actividades ─────────────────────────────────── */}
         {activeTab === 'actividades' && (
           <div className="space-y-4">
             {/* Filtro por tipo */}
@@ -238,7 +237,6 @@ export default function MisGrupoDetalle() {
           </div>
         )}
 
-        {/* ── Tab: Calificaciones ───────────────────────────────── */}
         {activeTab === 'calificaciones' && desglose && (
           <div className="space-y-4">
             {desglose.unidades?.length > 0
@@ -351,7 +349,6 @@ export default function MisGrupoDetalle() {
           </div>
         )}
 
-        {/* ── Modal: Detalle de Actividad ───────────────────────── */}
         <Modal
           open={modalAct.open}
           onClose={() => setModalAct({ open: false, data: null })}

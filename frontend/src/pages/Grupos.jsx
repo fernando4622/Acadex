@@ -8,7 +8,6 @@ import {
   BookOpen, Users, CheckCircle, Clock, ChevronRight, BarChart3, Plus, Trash2, UploadCloud, MapPin, User, FileSpreadsheet, Download
 } from 'lucide-react'
 
-// ── Grupos del ADMIN ───────────────────────────────────────────────────────
 function GruposAdmin() {
   const [grupos, setGrupos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -613,7 +612,6 @@ function GruposAdmin() {
   )
 }
 
-// ── Grupos del DOCENTE ─────────────────────────────────────────────────────
 function GruposDocente() {
   const [grupos, setGrupos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -734,7 +732,6 @@ function GruposDocente() {
   )
 }
 
-// ── Tarjeta de grupo reutilizable ─────────────────────────────────────────────
 function GrupoCard({ grupo, onClick, onDelete }) {
   const isMultiCarrera = grupo.carreras_ids && grupo.carreras_ids.length > 1;
 
@@ -788,7 +785,6 @@ function GrupoCard({ grupo, onClick, onDelete }) {
   )
 }
 
-// ── Grupos del ALUMNO ──────────────────────────────────────────────────────
 function GruposAlumno() {
   const [grupos, setGrupos] = useState([])
   const [periodos, setPeriodos] = useState([])
@@ -871,7 +867,6 @@ function GruposAlumno() {
   )
 }
 
-// ── Selector por rol ──────────────────────────────────────────────────────────
 export default function Grupos() {
   const { isAdmin, isAlumno, isDocente } = useAuth()
   if (isAdmin) return <GruposAdmin />

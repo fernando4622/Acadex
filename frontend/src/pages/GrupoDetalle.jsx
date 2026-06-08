@@ -122,7 +122,6 @@ export default function GrupoDetalle() {
     if (next && !actsByUnidad[next]) cargarActividades(next)
   }
 
-  // ── Ver resultados por unidad ───────────────────────────────────────────
   async function verResultadosUnidad(unidad) {
     setModalResUnidad(unidad)
     setLoadingRes(true)
@@ -159,7 +158,6 @@ export default function GrupoDetalle() {
     }
   }
 
-  // ── Crear actividad ───────────────────────────────────────────────────────
   async function crearActividad(e) {
     e.preventDefault()
     setError(null)
@@ -201,7 +199,6 @@ export default function GrupoDetalle() {
     }
   }
 
-  // ── Eliminar actividad ────────────────────────────────────────────────────
   async function eliminarActividad() {
     const { actividadId, unidadId } = confirmEliminarAct
     setSaving(true)
@@ -232,7 +229,6 @@ export default function GrupoDetalle() {
     }
   }
 
-  // ── Cerrar unidad ─────────────────────────────────────────────────────────
   async function cerrarUnidad(unidad, forzar) {
     setSaving(true)
     try {
@@ -249,7 +245,6 @@ export default function GrupoDetalle() {
 
 
 
-  // ── Inscribir alumno ──────────────────────────────────────────────────────
   async function inscribirAlumno() {
     if (!alumnoSelId) return
     setSavingInsc(true); setErrorInsc(null)
@@ -327,7 +322,6 @@ export default function GrupoDetalle() {
     }
   }
 
-  // ── Pre-cerrar materia ──────────────────────────────────────────────────────
   async function preCerrarMateria() {
     if (!confirm('¿Desea pre-cerrar la materia? Esto permitirá aplicar bonus de materia y ajustes finales (overrides) antes del sellado definitivo.')) return
     setSaving(true)
@@ -342,7 +336,6 @@ export default function GrupoDetalle() {
     }
   }
 
-  // ── Finalizar materia ─────────────────────────────────────────────────────
   async function finalizarMateria() {
     setSaving(true)
     try {
@@ -439,7 +432,6 @@ export default function GrupoDetalle() {
           </div>
         )}
 
-        {/* ── Sección de alumnos inscritos ── */}
         <Card className="overflow-hidden">
           <div
             className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-slate-50/50 transition-colors"
@@ -719,7 +711,6 @@ export default function GrupoDetalle() {
       </div>
 
 
-      {/* ── Modal agregar actividad ── */}
       <Modal open={!!modalAct} onClose={() => { setModalAct(null); setError(null) }} title="Nueva Actividad">
         {modalAct && (() => {
           const u = unidades.find(u => u.id === modalAct)
@@ -773,7 +764,6 @@ export default function GrupoDetalle() {
         })()}
       </Modal>
 
-      {/* ── Modal cerrar unidad ── */}
       <Modal open={!!modalCerrar} onClose={() => setModalC(null)} title="Cerrar Unidad">
         {modalCerrar && (
           <div className="space-y-4">
@@ -819,7 +809,6 @@ export default function GrupoDetalle() {
         )}
       </Modal>
 
-      {/* ── Modal Finalizar Materia ── */}
       <Modal open={modalFinalizar} onClose={() => setModalF(false)} title="Finalizar Materia">
         <div className="space-y-4">
           <div className="bg-success-50 border border-success-500/20 rounded-lg p-4">
@@ -859,7 +848,6 @@ export default function GrupoDetalle() {
         </div>
       </Modal>
 
-      {/* ── Modal inscribir alumno ── */}
       <Modal
         open={modalInscribir}
         onClose={() => { setModalInscribir(false); setAlumnoSearch(''); setAlumnoSelId('') }}
@@ -921,7 +909,6 @@ export default function GrupoDetalle() {
         </div>
       </Modal>
 
-      {/* ── Modal Importar CSV ── */}
       <Modal open={modalImport} onClose={() => setModalImport(false)} title="Inscribir Masivo CSV"
         footer={<div className="flex gap-2 justify-end"><Btn variant="secondary" onClick={() => setModalImport(false)}>Cerrar</Btn><Btn form="fiInsc" type="submit" loading={savingInsc}>Importar CSV</Btn></div>}
       >
@@ -974,7 +961,6 @@ export default function GrupoDetalle() {
         </form>
       </Modal>
 
-      {/* ── ConfirmDialog para baja de alumnos ── */}
       <ConfirmDialog
         open={!!confirmBaja}
         title="Confirmar baja"
@@ -985,7 +971,6 @@ export default function GrupoDetalle() {
         loading={savingInsc}
       />
 
-      {/* ── ConfirmDialog para eliminar actividad ── */}
       <ConfirmDialog
         open={!!confirmEliminarAct}
         title="Eliminar actividad"
@@ -1001,7 +986,6 @@ export default function GrupoDetalle() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
 
-      {/* ── Modal resultados por unidad ── */}
       <Modal
         open={!!modalResUnidad}
         onClose={() => setModalResUnidad(null)}
@@ -1113,7 +1097,6 @@ export default function GrupoDetalle() {
         )}
       </Modal>
 
-      {/* ── Modal bonus ── */}
       <Modal open={!!modalBonus} onClose={() => setModalBonus(null)} title="Bonus de Unidad">
         {modalBonus && (
           <form onSubmit={aplicarBonus} className="space-y-4">

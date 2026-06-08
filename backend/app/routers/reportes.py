@@ -21,10 +21,8 @@ from app.middleware.auth import require_admin, get_current_user, is_admin
 router = APIRouter(prefix="/reportes", tags=["Reportes"])
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # R1 — Boleta individual del alumno
 # Acceso: Admin (cualquier alumno_id) o Alumno (solo su propio)
-# ─────────────────────────────────────────────────────────────────────────────
 @router.get("/boleta/{alumno_id}")
 async def boleta_alumno(
     alumno_id: UUID,
@@ -123,9 +121,7 @@ async def boleta_alumno(
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # R2 — Calificaciones por grupo (con parciales por columna)
-# ─────────────────────────────────────────────────────────────────────────────
 @router.get("/grupo/{grupo_id}/calificaciones")
 async def calificaciones_por_grupo(
     grupo_id: UUID,
@@ -199,9 +195,7 @@ async def calificaciones_por_grupo(
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # R3 — Reporte por materia (todos los grupos de una materia en un periodo)
-# ─────────────────────────────────────────────────────────────────────────────
 @router.get("/por-materia")
 async def reporte_por_materia(
     materia_id: int = Query(..., description="ID de la materia"),
@@ -270,9 +264,7 @@ async def reporte_por_materia(
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # R7 — Índice de reprobación unificado con filtros combinados
-# ─────────────────────────────────────────────────────────────────────────────
 @router.get("/indice-reprobacion")
 async def indice_reprobacion(
     periodo_id: Optional[int] = Query(None),
@@ -343,9 +335,7 @@ async def indice_reprobacion(
     return [dict(r) for r in rows]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # R11 — Lista de alumnos reprobados con filtros
-# ─────────────────────────────────────────────────────────────────────────────
 @router.get("/reprobados")
 async def lista_reprobados(
     periodo_id: Optional[int] = Query(None),
@@ -405,10 +395,8 @@ async def lista_reprobados(
     return [dict(r) for r in rows]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # R12 — Alumnos en riesgo académico (datos reales)
 # Criterios: promedio estimado < 70 → riesgo ALTO, 70-79 → MEDIO, >= 80 → BAJO
-# ─────────────────────────────────────────────────────────────────────────────
 @router.get("/riesgo-academico")
 async def riesgo_academico(
     periodo_id: Optional[int] = Query(None, description="Periodo a evaluar. None = periodo activo"),
@@ -480,9 +468,7 @@ async def riesgo_academico(
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # R13 — Estado de captura de calificaciones (global para Admin)
-# ─────────────────────────────────────────────────────────────────────────────
 @router.get("/estado-captura")
 async def estado_captura(
     periodo_id: Optional[int] = Query(None, description="Filtrar por periodo. None = activo"),
@@ -543,9 +529,7 @@ async def estado_captura(
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Catálogos auxiliares para los filtros de los reportes
-# ─────────────────────────────────────────────────────────────────────────────
 @router.get("/catalogos/grupos-periodo")
 async def grupos_por_periodo(
     periodo_id: int = Query(...),

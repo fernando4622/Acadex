@@ -118,7 +118,6 @@ async def crear_grupo(
 
     materia_base_id = pm_info['materia_id']
 
-    # ── 1. Validar plantilla ────────────────────────────────────────────────
     tiene_plantilla = await conn.fetchval(
         "SELECT COUNT(*) FROM academ.unidad_plantilla WHERE materia_id=$1", materia_base_id
     )
@@ -131,7 +130,6 @@ async def crear_grupo(
             }
         )
 
-    # ── 2. Obtener datos para autogenerar clave_grupo ──────────────────────
     periodo_info = await conn.fetchrow(
         "SELECT codigo FROM academ.periodo_academico WHERE id=$1", body.periodo_id
     )
@@ -141,7 +139,6 @@ async def crear_grupo(
     letra = (body.letra_grupo or "").strip().upper()
     clave_grupo = f"{periodo_info['codigo']} {pm_info['clave']}{letra}".strip()
 
-    # ── 5. Insertar grupo ──────────────────────────────────────────
     try:
         row = await conn.fetchrow(
             """INSERT INTO academ.grupo
@@ -155,7 +152,6 @@ async def crear_grupo(
         )
         grupo_id = row["id"]
 
-        # ── 6. Copiar unidades plantilla ───────────────────────────────
         res = await conn.execute(
             """INSERT INTO academ.unidad (grupo_id, numero, nombre)
                SELECT $1, numero, nombre

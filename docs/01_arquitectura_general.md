@@ -1,11 +1,11 @@
-# Sistema de Registro y Cálculo de Resultados Académicos
+# ACADEX
 ## Documentación Completa del Sistema de Información
 
 ---
 
 ## 1. Visión General
 
-**Nombre**: Sistema de Registro y Cálculo de Resultados Académicos  
+**Nombre**: ACADEX  
 **Versión**: 1.0.0  
 **Motor BD**: PostgreSQL 17+/18 — Esquema Híbrido UUID/SERIAL  
 **Backend**: FastAPI (Python) + asyncpg  

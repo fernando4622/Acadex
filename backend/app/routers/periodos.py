@@ -16,7 +16,6 @@ from app.middleware.auth import require_admin, get_current_user
 router = APIRouter(prefix="/periodos", tags=["Periodos"])
 
 
-# ── Schemas ───────────────────────────────────────────────────────────────────
 
 class PeriodoCreate(BaseModel):
     codigo: str                   # EJ26, AD26, etc.
@@ -65,7 +64,6 @@ class ActivarPeriodoBody(BaseModel):
     confirmar: bool = False  # Debe ser True para confirmar el cierre del activo anterior
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("")
 async def listar_periodos(

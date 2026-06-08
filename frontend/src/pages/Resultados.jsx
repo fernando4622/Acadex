@@ -289,7 +289,6 @@ export default function Resultados() {
           <EmptyState icon={Clock} title="Resultados no disponibles" description="No hay unidades disponibles en este momento." />
         ) : (
           <div className="space-y-8">
-            {/* ── Resultados por Unidad ── */}
             <div className="space-y-6">
               <h2 className="text-lg font-bold text-gray-900">Resultados por Unidad</h2>
               {unidadesVisibles.map(u => {
@@ -393,7 +392,6 @@ export default function Resultados() {
               })}
             </div>
 
-            {/* ── Resultados Globales ── */}
             {(() => {
               const todasCerradas = unidades.length > 0 && unidades.every(u => ['CERRADA', 'PRE_CIERRE'].includes(u.estado))
               const mostrarGlobal = !isDocente || todasCerradas || ['PRECIERRE', 'FINALIZADO'].includes(grupo?.estado)
@@ -525,7 +523,6 @@ export default function Resultados() {
         )}
       </div>
 
-      {/* ── Modal desglose ── */}
       <Modal open={!!desglose} onClose={() => setDesglose(null)} title="Desglose de calificaciones" size="xl">
         {desglose && (
           <div className="space-y-4">
@@ -603,7 +600,6 @@ export default function Resultados() {
         )}
       </Modal>
 
-      {/* ── Modal bonus materia ── */}
       <Modal open={!!modalBonus} onClose={() => setModalBonus(null)}
         title={modalBonus?.tipo === 'unit' ? `Bonus de Unidad ${modalBonus.unidad_num}` : "Bonus de Materia"}
       >
@@ -642,7 +638,6 @@ export default function Resultados() {
         )}
       </Modal>
 
-      {/* ── Modal override ── */}
       <Modal open={!!modalOverride} onClose={() => setModalOvr(null)} title="Override de Resultado Final">
         <form onSubmit={aplicarOverride} className="space-y-4">
           <div className="bg-warning-50 border border-warning-500/20 rounded-lg p-3">
