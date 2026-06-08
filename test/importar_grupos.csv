@@ -1,0 +1,5 @@
+materia,docente,periodo,letra,semestre,horario_dias,hora_inicio,hora_fin,aula
+1J1,E24527,EJ26,C,1,L-V,07:00,09:00,E202
+1J1,1001,EJ26,B,1,L-J,09:00,11:00,L-02
+2J2,E23033,EJ26,A,2,L,X,V,11:00,13:00,A-10
+3J3,E75985,EJ26,C,3,M-J,14:00,16:00,B-05

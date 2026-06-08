@@ -1,0 +1,6 @@
+clave,nombre,creditos,unidades,carreras
+MCOM-001,Matemáticas Básicas Institucional,4,Fundamentos|Funciones|Geometría plana,COMUN
+PROG-501,Programación OO,6,Introducción|Estructuras condicionales|Ciclos y arreglos|Modularidad,Y
+FIS-502,Física para Ingeniería,5,Cinemática lineal|Leyes de Newton|Trabajo y energía,Y
+EST-503,Estadística descriptiva,4,Datos y gráficas|Medidas de tendencia central|Dispersión y boxplot,Y|J
+ING-504,Inglés técnico nivel I,3,Comprensión lectora|Vocabulario especializado|Escritura formal,Y|F
