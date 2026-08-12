@@ -2,8 +2,10 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 from asyncpg import Connection
 from app.database import get_conn
-from app.middleware.auth import is_admin, is_docente, is_alumno, require_docente_o_admin, get_current_user, assert_docente_en_grupo
+from app.auth.authorization import authorize_group_mutation
+from app.middleware.auth import require_docente_o_admin
 from app.schemas.calificacion import CalificacionCreate, CalificacionBulkRequest
+from app.services.calificaciones import guardar_calificaciones_atomicas
 from app.errors import handle_pg_error
 
 router = APIRouter(tags=["Calificaciones"])
@@ -67,10 +69,9 @@ async def registrar_calificacion(
     if not unidad_info or unidad_info['estado'] != 'EDICION':
         raise HTTPException(409, detail={"codigo": "UNIDAD_BLOQUEADA", "mensaje": "No se pueden registrar calificaciones en una unidad que no está en estado EDICION."})
 
-    assert_docente_en_grupo(user, grupo_id)
-    docente_id = user.get("id_entidad")
-    if is_admin(user) or not docente_id:
-        docente_id = await conn.fetchval("SELECT docente_id FROM academ.grupo WHERE id=$1", grupo_id)
+    docente_id = await authorize_group_mutation(
+        conn, user, grupo_id, [body.inscripcion_id]
+    )
     async with conn.transaction():
         await conn.execute(
             "SELECT set_config('app.usuario_id',$1,TRUE), set_config('app.motivo',$2,TRUE)",
@@ -113,30 +114,21 @@ async def bulk_calificaciones(
     if not unidad_info or unidad_info['estado'] != 'EDICION':
         raise HTTPException(409, detail={"codigo": "UNIDAD_BLOQUEADA", "mensaje": "No se pueden registrar calificaciones en una unidad que no está en estado EDICION."})
 
-    assert_docente_en_grupo(user, grupo_id)
-    docente_id = user.get("id_entidad")
-    if is_admin(user) or not docente_id:
-        docente_id = await conn.fetchval("SELECT docente_id FROM academ.grupo WHERE id=$1", grupo_id)
-    # Establecer variables de sesión UNA VEZ antes del loop — el motivo es
-    # el mismo para toda la operación bulk y los triggers de auditoría las
-    # leen en cada INSERT aunque el SP también las establezca internamente.
-    async with conn.transaction():
-        await conn.execute(
-            "SELECT set_config('app.usuario_id',$1,TRUE), set_config('app.motivo',$2,TRUE)",
-            user["sub"], body.motivo or "",
-        )
-        guardadas, errores = 0, []
-        for item in body.calificaciones:
-            try:
-                await conn.execute(
-                    "CALL academ.sp_registrar_calificacion($1,$2,$3,$4,$5,$6)",
-                    item.inscripcion_id, actividad_id, item.calificacion,
-                    item.estado_entrega, docente_id, body.motivo,
-                )
-                guardadas += 1
-            except asyncpg.PostgresError as e:
-                errores.append({"inscripcion_id": item.inscripcion_id, "error": str(e.args[0] if e.args else e)})
-    return {"guardadas": guardadas, "errores": errores, "total": len(body.calificaciones)}
+    docente_id = await authorize_group_mutation(
+        conn,
+        user,
+        grupo_id,
+        [item.inscripcion_id for item in body.calificaciones],
+    )
+    guardadas = await guardar_calificaciones_atomicas(
+        conn,
+        actividad_id=actividad_id,
+        calificaciones=body.calificaciones,
+        docente_id=docente_id,
+        usuario_id=user["sub"],
+        motivo=body.motivo,
+    )
+    return {"guardadas": guardadas, "total": len(body.calificaciones)}
 
 
 @router.get("/unidades/{unidad_id}/captura-pendiente")

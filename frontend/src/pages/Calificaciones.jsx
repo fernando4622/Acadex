@@ -117,14 +117,9 @@ export default function Calificaciones() {
     }))
     try {
       const r = await calsApi.bulk(act.id, { calificaciones: payload, motivo: 'Registro de calificaciones' })
-      if (r.data.errores?.length > 0) {
-        const primerError = r.data.errores[0].error
-        notify(`Error al guardar: ${primerError}`, 'error')
-      } else {
-        notify(`${r.data.guardadas} calificaciones guardadas`)
-        setEdited({})
-        refrescarCaptura()
-      }
+      notify(`${r.data.guardadas} calificaciones guardadas`)
+      setEdited({})
+      refrescarCaptura()
       const reloaded = await calsApi.listar(act.id)
       setRegistros(reloaded.data)
       setEdited({})

@@ -2,7 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from asyncpg import Connection
 from uuid import UUID
 from app.database import get_conn
-from app.middleware.auth import is_admin, is_docente, is_alumno, get_current_user, require_docente_o_admin, assert_docente_en_grupo
+from app.auth.authorization import (
+    assert_can_read_enrollment_unit,
+    assert_can_read_group_results,
+)
+from app.middleware.auth import get_current_user, require_docente_o_admin
 
 router = APIRouter(tags=["Resultados"])
 
@@ -11,8 +15,9 @@ router = APIRouter(tags=["Resultados"])
 async def resultados_del_grupo(
     grupo_id: UUID,
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),
 ):
+    await assert_can_read_group_results(conn, user, grupo_id)
     rows = await conn.fetch(
         """SELECT alumno,matricula,inscripcion_id,promedio_base,bonus_materia,justificacion,
                   resultado_calculado,resultado_override,resultado_final,estatus,
@@ -30,7 +35,7 @@ async def estadisticas_grupo(
     conn: Connection = Depends(get_conn),
     user: dict = Depends(require_docente_o_admin),
 ):
-    assert_docente_en_grupo(user, grupo_id)
+    await assert_can_read_group_results(conn, user, grupo_id)
     
     # Verificar si hay al menos una unidad evaluada (CERRADA o PRE_CIERRE)
     has_evals = await conn.fetchval(
@@ -89,7 +94,7 @@ async def resultados_por_unidad(
     conn: Connection = Depends(get_conn),
     user: dict = Depends(require_docente_o_admin),
 ):
-    assert_docente_en_grupo(user, grupo_id)
+    await assert_can_read_group_results(conn, user, grupo_id)
     rows = await conn.fetch(
         """SELECT vp.matricula,vp.alumno,vp.inscripcion_id,
                   vp.unidad_id,vp.unidad_numero,vp.unidad_nombre,vp.unidad_estado,
@@ -111,8 +116,15 @@ async def resultado_dinamico(
     inscripcion_id: UUID,
     unidad_id: int,
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),
 ):
+    await assert_can_read_enrollment_unit(
+        conn,
+        user,
+        inscripcion_id,
+        unidad_id,
+        allow_student_owner=True,
+    )
     try:
         row = await conn.fetchrow(
             "SELECT * FROM academ.fn_calcular_resultado_unidad($1,$2)",
@@ -144,8 +156,15 @@ async def obtener_detalle_actividades(
     inscripcion_id: UUID,
     unidad_id: int,
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(require_docente_o_admin)
+    user: dict = Depends(require_docente_o_admin)
 ):
+    await assert_can_read_enrollment_unit(
+        conn,
+        user,
+        inscripcion_id,
+        unidad_id,
+        allow_student_owner=False,
+    )
     resultado_final = await conn.fetchval(
         """SELECT COALESCE(SUM(ra.calificacion * (a.ponderacion / 100.0)), 0)
            FROM academ.resultado_actividad ra

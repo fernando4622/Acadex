@@ -375,32 +375,9 @@ SET estado = 'cerrado'
 WHERE codigo <> 'EJ26'
   AND estado  = 'activo';
 
--- ---------------------------------------------------------------------------
--- 4E. Usuario administrador institucional (si no existe)
--- ---------------------------------------------------------------------------
-DO $$
-DECLARE
-    v_usuario_id UUID;
-    v_rol_id     UUID;
-BEGIN
-    -- Verificar si ya existe
-    IF EXISTS (SELECT 1 FROM academ.usuario WHERE email = 'admin@veracruz.tecnm.mx') THEN
-        RETURN;
-    END IF;
-
-    SELECT id INTO v_rol_id FROM academ.rol WHERE nombre = 'ADMIN';
-
-    INSERT INTO academ.usuario (email, password_hash)
-    VALUES (
-        'admin@veracruz.tecnm.mx',
-        '$2b$12$R9h/9shS9/Ym.xT6C9G9FuV0Bx1JQBI0u2nvLm2aNIe6paEmq8kRW'  -- Admin1234!
-    )
-    RETURNING id INTO v_usuario_id;
-
-    INSERT INTO academ.usuario_rol (usuario_id, rol_id, asignado_por)
-    VALUES (v_usuario_id, v_rol_id, v_usuario_id);
-END;
-$$;
+-- La cuenta administrativa inicial debe crearse de forma explícita mediante
+-- backend/scripts/crear_administrador.py. Esta migración no distribuye
+-- credenciales reutilizables.
 
 -- =============================================================================
 -- SECCIÓN 5: FUNCIÓN AUXILIAR — ACTIVAR PERIODO (con cierre automático)

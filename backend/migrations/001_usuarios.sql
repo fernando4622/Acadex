@@ -28,8 +28,5 @@ CREATE INDEX idx_usuario_email   ON academ.usuario(email);
 CREATE INDEX idx_usuario_docente ON academ.usuario(docente_id);
 CREATE INDEX idx_usuario_alumno  ON academ.usuario(alumno_id);
 
--- Admin por defecto (password: Admin1234!)
-INSERT INTO academ.usuario (email, password_hash, rol)
-VALUES ('admin@escuela.edu',
-        '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBpj2Ixqn8P4gS',
-        'ADMIN');
+-- Las cuentas administrativas se crean explícitamente fuera de las migraciones.
+-- Nunca incluir correos, contraseñas ni hashes reutilizables en el repositorio.

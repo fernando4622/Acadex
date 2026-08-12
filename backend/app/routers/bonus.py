@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from asyncpg import Connection
 from uuid import UUID
 from app.database import get_conn
-from app.middleware.auth import is_admin, is_docente, is_alumno, require_docente_o_admin, assert_docente_en_grupo
+from app.auth.authorization import authorize_group_mutation
+from app.middleware.auth import require_docente_o_admin
 from app.schemas.bonus import BonusUnidadRequest, BonusMateriaRequest, OverrideRequest
 from app.errors import handle_pg_error
 
@@ -17,10 +18,9 @@ async def aplicar_bonus_unidad(
     conn: Connection = Depends(get_conn),
     user: dict = Depends(require_docente_o_admin),
 ):
-    assert_docente_en_grupo(user, grupo_id)
-    docente_id = user.get("id_entidad")
-    if is_admin(user) or not docente_id:
-        docente_id = await conn.fetchval("SELECT docente_id FROM academ.grupo WHERE id=$1", grupo_id)
+    docente_id = await authorize_group_mutation(
+        conn, user, grupo_id, [body.inscripcion_id], unidad_id=body.unidad_id
+    )
     # 1. Obtener datos de la unidad y estado de unidades previas
     info = await conn.fetchrow("""
         SELECT u.numero, u.estado as estado_unidad, g.estado as estado_grupo
@@ -98,10 +98,9 @@ async def aplicar_bonus_materia(
     user: dict = Depends(require_docente_o_admin),
 ):
     print(f"DEBUG: aplicando bonus materia para grupo {grupo_id}")
-    assert_docente_en_grupo(user, grupo_id)
-    docente_id = user.get("id_entidad")
-    if is_admin(user) or not docente_id:
-        docente_id = await conn.fetchval("SELECT docente_id FROM academ.grupo WHERE id=$1", grupo_id)
+    docente_id = await authorize_group_mutation(
+        conn, user, grupo_id, [body.inscripcion_id]
+    )
     
     await conn.execute(
         "SELECT set_config('app.usuario_id',$1,TRUE), set_config('app.motivo',$2,TRUE)",
@@ -145,10 +144,9 @@ async def override_resultado(
     conn: Connection = Depends(get_conn),
     user: dict = Depends(require_docente_o_admin),
 ):
-    assert_docente_en_grupo(user, grupo_id)
-    docente_id = user.get("id_entidad")
-    if is_admin(user) or not docente_id:
-        docente_id = await conn.fetchval("SELECT docente_id FROM academ.grupo WHERE id=$1", grupo_id)
+    docente_id = await authorize_group_mutation(
+        conn, user, grupo_id, [body.inscripcion_id]
+    )
     antes = await conn.fetchrow(
         "SELECT resultado_calculado,resultado_final FROM academ.resultado_materia WHERE inscripcion_id=$1",
         body.inscripcion_id,
