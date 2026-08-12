@@ -92,3 +92,54 @@ async def assert_can_read_enrollment_unit(
         return
 
     raise _forbidden()
+
+
+async def authorize_group_mutation(
+    conn: Connection,
+    user: dict,
+    grupo_id: UUID,
+    enrollment_ids: list[UUID],
+    *,
+    unidad_id: int | None = None,
+) -> UUID:
+    """Validate the actor and every resource before an academic mutation starts."""
+    group = await conn.fetchrow(
+        "SELECT docente_id FROM academ.grupo WHERE id=$1",
+        grupo_id,
+    )
+    if not group:
+        raise _not_found()
+
+    teacher_id = group["docente_id"]
+    if not _has_role(user, "ADMIN"):
+        if not (
+            _has_role(user, "DOCENTE")
+            and str(user.get("id_entidad")) == str(teacher_id)
+        ):
+            raise _forbidden()
+
+    unique_enrollment_ids = list(dict.fromkeys(enrollment_ids))
+    matching_rows = await conn.fetch(
+        """
+        SELECT id
+        FROM academ.inscripcion
+        WHERE grupo_id=$1 AND id=ANY($2::uuid[])
+        """,
+        grupo_id,
+        unique_enrollment_ids,
+    )
+    matching_ids = {str(row["id"]) for row in matching_rows}
+    expected_ids = {str(enrollment_id) for enrollment_id in unique_enrollment_ids}
+    if matching_ids != expected_ids:
+        raise _not_found()
+
+    if unidad_id is not None:
+        unit_exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM academ.unidad WHERE id=$1 AND grupo_id=$2)",
+            unidad_id,
+            grupo_id,
+        )
+        if not unit_exists:
+            raise _not_found()
+
+    return teacher_id

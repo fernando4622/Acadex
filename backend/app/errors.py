@@ -26,6 +26,8 @@ Mapa de ERRCODE → HTTP status:
   P0041  Docente no autorizado (override)     → 403 Forbidden
   P0042  Override fuera de rango              → 422 Unprocessable
   P0043  Sin resultado de materia             → 409 Conflict
+  P0060  Recursos de grupos diferentes        → 404 Not Found
+  P0061  Actor no autorizado para calificar   → 403 Forbidden
 """
 
 from fastapi import HTTPException
@@ -54,6 +56,8 @@ _PG_ERROR_MAP: dict[str, tuple[int, str]] = {
     "P0041": (403, "DOCENTE_NO_AUTORIZADO"),
     "P0042": (422, "OVERRIDE_FUERA_DE_RANGO"),
     "P0043": (409, "SIN_RESULTADO_MATERIA"),
+    "P0060": (404, "RECURSO_ACADEMICO_NO_ENCONTRADO"),
+    "P0061": (403, "DOCENTE_NO_AUTORIZADO"),
 }
 
 

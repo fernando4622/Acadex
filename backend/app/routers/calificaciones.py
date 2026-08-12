@@ -2,7 +2,8 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 from asyncpg import Connection
 from app.database import get_conn
-from app.middleware.auth import is_admin, is_docente, is_alumno, require_docente_o_admin, get_current_user, assert_docente_en_grupo
+from app.auth.authorization import authorize_group_mutation
+from app.middleware.auth import require_docente_o_admin
 from app.schemas.calificacion import CalificacionCreate, CalificacionBulkRequest
 from app.errors import handle_pg_error
 
@@ -67,10 +68,9 @@ async def registrar_calificacion(
     if not unidad_info or unidad_info['estado'] != 'EDICION':
         raise HTTPException(409, detail={"codigo": "UNIDAD_BLOQUEADA", "mensaje": "No se pueden registrar calificaciones en una unidad que no está en estado EDICION."})
 
-    assert_docente_en_grupo(user, grupo_id)
-    docente_id = user.get("id_entidad")
-    if is_admin(user) or not docente_id:
-        docente_id = await conn.fetchval("SELECT docente_id FROM academ.grupo WHERE id=$1", grupo_id)
+    docente_id = await authorize_group_mutation(
+        conn, user, grupo_id, [body.inscripcion_id]
+    )
     async with conn.transaction():
         await conn.execute(
             "SELECT set_config('app.usuario_id',$1,TRUE), set_config('app.motivo',$2,TRUE)",
@@ -113,10 +113,12 @@ async def bulk_calificaciones(
     if not unidad_info or unidad_info['estado'] != 'EDICION':
         raise HTTPException(409, detail={"codigo": "UNIDAD_BLOQUEADA", "mensaje": "No se pueden registrar calificaciones en una unidad que no está en estado EDICION."})
 
-    assert_docente_en_grupo(user, grupo_id)
-    docente_id = user.get("id_entidad")
-    if is_admin(user) or not docente_id:
-        docente_id = await conn.fetchval("SELECT docente_id FROM academ.grupo WHERE id=$1", grupo_id)
+    docente_id = await authorize_group_mutation(
+        conn,
+        user,
+        grupo_id,
+        [item.inscripcion_id for item in body.calificaciones],
+    )
     # Establecer variables de sesión UNA VEZ antes del loop — el motivo es
     # el mismo para toda la operación bulk y los triggers de auditoría las
     # leen en cada INSERT aunque el SP también las establezca internamente.
