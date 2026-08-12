@@ -2640,28 +2640,8 @@ INSERT INTO academ.rol (nombre, descripcion) VALUES
     ('DOCENTE', 'Docente: opera únicamente sobre sus grupos asignados'),
     ('ALUMNO',  'Alumno: lectura de sus propios resultados');
 
--- Usuario administrador por defecto
--- Contraseña: Admin1234!
--- Hash generado con bcrypt rounds=12
--- ⚠ CAMBIAR ESTA CONTRASEÑA EN EL PRIMER USO EN PRODUCCIÓN
-DO $$
-DECLARE
-    v_usuario_id UUID;
-    v_rol_id     UUID;
-BEGIN
-    INSERT INTO academ.usuario (email, password_hash)
-    VALUES (
-        'admin@escuela.edu',
-        '$2b$12$R9h/9shS9/Ym.xT6C9G9FuV0Bx1JQBI0u2nvLm2aNIe6paEmq8kRW'
-    )
-    RETURNING id INTO v_usuario_id;
-
-    SELECT id INTO v_rol_id FROM academ.rol WHERE nombre = 'ADMIN';
-
-    INSERT INTO academ.usuario_rol (usuario_id, rol_id, asignado_por)
-    VALUES (v_usuario_id, v_rol_id, v_usuario_id);  -- se auto-asigna
-END;
-$$;
+-- La cuenta administrativa inicial se crea de forma explícita mediante
+-- backend/scripts/crear_administrador.py. El esquema no incluye credenciales.
 
 -- =============================================================================
 -- VERIFICACIÓN
@@ -2725,7 +2705,6 @@ DECLARE
     v_ramirez_id    UUID;
 
     -- Rol docente
-    v_rol_docente_id UUID;
 
     -- Grupos (Mantienen UUID)
     v_poo_a_id  UUID;
@@ -2791,33 +2770,11 @@ SELECT id INTO v_hernandez_id FROM academ.alumno             WHERE matricula = '
 SELECT id INTO v_torres_id    FROM academ.alumno             WHERE matricula = 'A003';
 SELECT id INTO v_jimenez_id   FROM academ.alumno             WHERE matricula = 'A004';
 SELECT id INTO v_ramirez_id   FROM academ.alumno             WHERE matricula = 'A005';
-SELECT id INTO v_rol_docente_id FROM academ.rol              WHERE nombre = 'DOCENTE';
 
 RAISE NOTICE 'Catálogos cargados.';
 
--- ─── BLOQUE 2: Crear usuario del docente con su mismo UUID ───────────────────
--- El trigger fn_tg_audit_resultado_actividad guarda en auditoria_log.usuario_app
--- el valor de app.usuario_id, que sp_registrar_calificacion establece como
--- p_docente_id (el UUID del docente).
--- Para que la FK auditoria_log.usuario_app → usuario.id no falle,
--- insertamos el usuario usando exactamente el UUID del docente.
-
-INSERT INTO academ.usuario (id, email, password_hash)
-VALUES (
-    v_docente_id,
-    'c.martinez@escuela.edu',
-	
-    '$2b$12$R9h/9shS9/Ym.xT6C9G9FuV0Bx1JQBI0u2nvLm2aNIe6paEmq8kRW'
-);
-
-INSERT INTO academ.usuario_rol (usuario_id, rol_id)
-VALUES (v_docente_id, v_rol_docente_id);
-
-UPDATE academ.docente
-SET usuario_id = v_docente_id
-WHERE id = v_docente_id;
-
-RAISE NOTICE 'Usuario del docente creado.';
+-- Las cuentas de acceso para datos de demostración deben crearse explícitamente.
+-- El esquema no distribuye contraseñas conocidas para docentes ni administradores.
 
 -- ─── BLOQUE 3: Grupos ─────────────────────────────────────────────────────────
 
