@@ -26,7 +26,7 @@ class PasswordPolicyTests(unittest.TestCase):
 class BootstrapSeedTests(unittest.TestCase):
     def test_bootstrap_sources_do_not_create_known_credentials(self):
         sources = (
-            BACKEND_ROOT / "migrations" / "001_usuarios.sql",
+            BACKEND_ROOT / "migrations" / "legacy" / "001_usuarios.sql",
             PROJECT_ROOT / "bd" / "003_expansion.sql",
             PROJECT_ROOT / "bd" / "database.sql",
         )
