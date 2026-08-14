@@ -68,7 +68,9 @@ python -m scripts.verificar_esquema --bootstrap ../bd/database.sql
 ```
 
 Mientras la consolidación siga pendiente, este segundo comando termina con código `1` y enumera
-los objetos del contrato que todavía no están declarados por el camino de instalación limpio.
+los objetos y columnas vigentes que todavía no están declarados por el camino de instalación limpio.
+El contrato usa exclusivamente los nombres actuales (`no_control`, `plan_materia_id`, `estado` y
+`tipo_catalogo_id`); los nombres históricos no se aceptan como equivalentes.
 
 El verificador separa errores del núcleo de capacidades avanzadas no instaladas.
 Las capacidades opcionales se informan sin invalidar una instalación básica.

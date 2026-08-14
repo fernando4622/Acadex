@@ -3,11 +3,13 @@ from pathlib import Path
 
 from scripts.verificar_esquema import (
     CAPACIDADES_OPCIONALES,
+    COLUMNAS_REQUERIDAS,
     EstadoEsquema,
     RUTINAS_REQUERIDAS,
     TABLAS_REQUERIDAS,
     VISTAS_REQUERIDAS,
     detectar_capacidades_no_disponibles,
+    detectar_columnas_faltantes,
     detectar_faltantes,
     fuentes_bootstrap,
     leer_estado_fuentes_sql,
@@ -19,6 +21,41 @@ PROJECT_ROOT = BACKEND_ROOT.parent
 
 
 class SchemaContractTests(unittest.TestCase):
+    def test_column_contract_uses_current_domain_names(self):
+        self.assertIn("no_control", COLUMNAS_REQUERIDAS["alumno"])
+        self.assertNotIn("matricula", COLUMNAS_REQUERIDAS["alumno"])
+        self.assertIn("plan_materia_id", COLUMNAS_REQUERIDAS["grupo"])
+        self.assertNotIn("materia_id", COLUMNAS_REQUERIDAS["grupo"])
+        self.assertIn("estado", COLUMNAS_REQUERIDAS["periodo_academico"])
+        self.assertNotIn("activo", COLUMNAS_REQUERIDAS["periodo_academico"])
+        self.assertIn("tipo_catalogo_id", COLUMNAS_REQUERIDAS["actividad"])
+        self.assertNotIn("tipo", COLUMNAS_REQUERIDAS["actividad"])
+
+    def test_current_column_contract_has_no_missing_columns(self):
+        estado = EstadoEsquema(
+            tablas=set(TABLAS_REQUERIDAS),
+            rutinas=set(RUTINAS_REQUERIDAS),
+            vistas=set(VISTAS_REQUERIDAS),
+            columnas={tabla: set(columnas) for tabla, columnas in COLUMNAS_REQUERIDAS.items()},
+        )
+
+        self.assertEqual(detectar_columnas_faltantes(estado), {})
+
+    def test_legacy_column_names_do_not_satisfy_current_contract(self):
+        columnas = {tabla: set(nombres) for tabla, nombres in COLUMNAS_REQUERIDAS.items()}
+        columnas["alumno"] = columnas["alumno"] - {"no_control"} | {"matricula"}
+        columnas["grupo"] = columnas["grupo"] - {"plan_materia_id"} | {"materia_id"}
+        columnas["periodo_academico"] = columnas["periodo_academico"] - {"estado"} | {"activo"}
+        columnas["actividad"] = columnas["actividad"] - {"tipo_catalogo_id"} | {"tipo"}
+        estado = EstadoEsquema(set(), set(), set(), columnas)
+
+        faltantes = detectar_columnas_faltantes(estado)
+
+        self.assertEqual(faltantes["alumno"], ["no_control"])
+        self.assertEqual(faltantes["grupo"], ["plan_materia_id"])
+        self.assertEqual(faltantes["periodo_academico"], ["estado"])
+        self.assertEqual(faltantes["actividad"], ["tipo_catalogo_id"])
+
     def test_complete_schema_has_no_missing_objects(self):
         estado = EstadoEsquema(
             tablas=set(TABLAS_REQUERIDAS),
@@ -95,6 +132,8 @@ class SchemaContractTests(unittest.TestCase):
         self.assertEqual(estado.tablas, {"alumno", "materia"})
         self.assertEqual(estado.rutinas, {"fn_prueba", "sp_prueba"})
         self.assertEqual(estado.vistas, {"v_prueba"})
+        self.assertEqual(estado.columnas["alumno"], {"id"})
+        self.assertEqual(estado.columnas["materia"], {"id"})
 
     def test_current_bootstrap_drift_is_explicit(self):
         fuentes = fuentes_bootstrap(
@@ -117,6 +156,14 @@ class SchemaContractTests(unittest.TestCase):
                 "vistas": [],
             },
         )
+
+        columnas_faltantes = detectar_columnas_faltantes(
+            leer_estado_fuentes_sql(fuentes)
+        )
+        self.assertIn("no_control", columnas_faltantes["alumno"])
+        self.assertIn("plan_materia_id", columnas_faltantes["grupo"])
+        self.assertIn("estado", columnas_faltantes["periodo_academico"])
+        self.assertIn("tipo_catalogo_id", columnas_faltantes["actividad"])
 
 
 if __name__ == "__main__":
