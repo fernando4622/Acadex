@@ -9,8 +9,7 @@ Flujo para cada entidad:
 
 Formato esperado de cada CSV:
   alumnos.csv      → matricula, nombre, apellido_pat, apellido_mat (opc), email (opc)
-  materias.csv     → clave, nombre, creditos (opc), unidades (opc, nombres con |),
-                     carreras (COMUN | claves con | igual que unidades); legado carrera/carrera_clave
+  materias.csv     → clave, nombre, creditos (opc), unidades (opc, nombres con |)
   grupos.csv       → clave_materia debe coincidir con academ.materia.clave; si la materia
                      tiene más de una carrera, usar columna carrera o carrera_clave
   inscripciones.csv→ idem grupo en triplete nombre_grupo + clave_materia + codigo_periodo
@@ -23,11 +22,7 @@ from asyncpg import Connection
 
 from app.database import get_conn
 from app.middleware.auth import require_admin
-from app.helpers.materia_carrera import (
-    resolver_celdas_carreras_materias_csv,
-    resolver_grupo_desde_clave_materia,
-    sync_materia_carreras,
-)
+from app.helpers.plan_materia import resolver_grupo_desde_clave_materia
 from app.routers.docentes import generar_email_docente, hash_password
 from app.schemas.docente import DocenteImportPreview
 from app.schemas.alumno import AlumnoImportPreview
@@ -409,11 +404,9 @@ async def preview_materias(
         clave = (fila.get("clave") or fila.get("codigo") or "").strip().upper()
         nombre = (fila.get("nombre") or "").strip()
         cred = fila.get("creditos") or fila.get("cred")
-        campo_carreras_raw = (fila.get("carreras") or fila.get("carrera") or fila.get("carrera_clave") or "")
-
         r = {
             "fila": i, "clave": clave or "—", "nombre": nombre or "—",
-            "creditos": cred or "—", "carreras": campo_carreras_raw or "—",
+            "creditos": cred or "—",
             "error": None, "ya_existe": False
         }
 
@@ -422,7 +415,6 @@ async def preview_materias(
             results.append(r); continue
 
         try:
-            await resolver_celdas_carreras_materias_csv(conn, campo_carreras_raw)
             ya_existe = await conn.fetchval("SELECT id FROM academ.materia WHERE clave = $1 OR nombre = $2", clave, nombre.strip())
             r["ya_existe"] = bool(ya_existe)
         except Exception as e: r["error"] = str(e)
@@ -444,14 +436,11 @@ async def importar_materias(
         clave = (fila.get("clave") or fila.get("codigo") or "").strip().upper()
         nombre = (fila.get("nombre") or "").strip()
         cred = fila.get("creditos") or fila.get("cred")
-        campo_carreras_raw = (fila.get("carreras") or fila.get("carrera") or fila.get("carrera_clave") or "")
-
         if not clave or not nombre:
             errores.append({"fila": i, "error": "Campos obligatorios faltantes"})
             continue
 
         try:
-            ids_carreras = await resolver_celdas_carreras_materias_csv(conn, campo_carreras_raw)
             creditos = int(cred) if cred else None
             unidades_raw = fila.get("unidades") or fila.get("temas")
 
@@ -471,7 +460,6 @@ async def importar_materias(
                     for num, nom in enumerate(lista_unidades, start=1):
                         await conn.execute("INSERT INTO academ.unidad_plantilla (materia_id, numero, nombre) VALUES ($1, $2, $3) ON CONFLICT (materia_id, numero) DO UPDATE SET nombre=EXCLUDED.nombre", materia_id, num, nom)
 
-                await sync_materia_carreras(conn, materia_id, ids_carreras)
                 if es_nueva: ins += 1
                 else: omit += 1
         except Exception as e: errores.append({"fila": i, "error": str(e)})

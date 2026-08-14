@@ -10,7 +10,7 @@ export default function Catalogos() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null)
   const [form, setForm] = useState({
-    id: '', nombre: '', clave: '', creditos: '', unidades: '', carreras_ids: []
+    id: '', nombre: '', clave: '', creditos: '', unidades: ''
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -84,7 +84,6 @@ export default function Catalogos() {
         clave: m.clave || '',
         nombre: m.nombre,
         creditos: m.creditos || '',
-        carreras_ids: m.carreras_ids || [],
         unidades: '',
         unidadesLista: (unidadesPlantilla[m.id] || []).map(u => u.nombre),
       })
@@ -96,7 +95,6 @@ export default function Catalogos() {
         nombre: '',
         clave: '',
         creditos: '',
-        carreras_ids: [],
         unidades: '',
         unidadesLista: [''],
       })
@@ -548,7 +546,8 @@ export default function Catalogos() {
         <div className="space-y-4">
           <div className="bg-brand-50 rounded-xl p-4 text-xs text-brand-700">
             <p className="font-bold mb-1">Formato requerido</p>
-            <p>El archivo CSV debe contener las columnas: <code>nombre, clave, creditos, horas_teoria, horas_practica</code>.</p>
+            <p>El archivo CSV debe contener <code>clave, nombre</code> y, opcionalmente, <code>creditos, unidades</code>. Las unidades se separan con <code>|</code>.</p>
+            <p className="mt-2">Después de importar, vincula cada materia a su carrera desde <strong>Planes de Estudio</strong>.</p>
           </div>
 
           {!importPreview && !resumenImport && (

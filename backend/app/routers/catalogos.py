@@ -9,10 +9,6 @@ from app.schemas.carrera import CarreraCreate, CarreraResponse
 from app.schemas.plan_estudio import PlanEstudioCreate, PlanEstudioResponse
 from app.schemas.plan_materia import PlanMateriaCreate, PlanMateriaResponse
 from app.schemas.prerrequisito import PrerrequisitoCreate, PrerrequisitoResponse
-from app.helpers.materia_carrera import (
-    resolver_celdas_carreras_materias_csv
-)
-
 router = APIRouter(tags=["Catálogos"])
 
 
