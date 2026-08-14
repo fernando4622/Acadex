@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from scripts.verificar_esquema import (
     CAPACIDADES_OPCIONALES,
@@ -8,7 +9,13 @@ from scripts.verificar_esquema import (
     VISTAS_REQUERIDAS,
     detectar_capacidades_no_disponibles,
     detectar_faltantes,
+    fuentes_bootstrap,
+    leer_estado_fuentes_sql,
 )
+
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = BACKEND_ROOT.parent
 
 
 class SchemaContractTests(unittest.TestCase):
@@ -63,6 +70,53 @@ class SchemaContractTests(unittest.TestCase):
         faltantes = detectar_capacidades_no_disponibles(estado)
 
         self.assertNotIn("horario_grupo", faltantes)
+
+    def test_extracts_objects_from_qualified_and_unqualified_sql(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "esquema.sql"
+            source.write_text(
+                """
+                CREATE TABLE academ.alumno (id UUID);
+                CREATE TABLE IF NOT EXISTS materia (id INT);
+                CREATE OR REPLACE FUNCTION academ.fn_prueba() RETURNS INT AS $$
+                BEGIN RETURN 1; END;
+                $$ LANGUAGE plpgsql;
+                CREATE PROCEDURE sp_prueba() LANGUAGE SQL AS $$ SELECT 1 $$;
+                CREATE OR REPLACE VIEW academ.v_prueba AS SELECT 1;
+                -- CREATE TABLE academ.no_debe_contar (id INT);
+                """,
+                encoding="utf-8",
+            )
+
+            estado = leer_estado_fuentes_sql([source])
+
+        self.assertEqual(estado.tablas, {"alumno", "materia"})
+        self.assertEqual(estado.rutinas, {"fn_prueba", "sp_prueba"})
+        self.assertEqual(estado.vistas, {"v_prueba"})
+
+    def test_current_bootstrap_drift_is_explicit(self):
+        fuentes = fuentes_bootstrap(
+            PROJECT_ROOT / "bd" / "database.sql",
+            BACKEND_ROOT / "migrations",
+        )
+
+        faltantes = detectar_faltantes(leer_estado_fuentes_sql(fuentes))
+
+        self.assertEqual(
+            faltantes,
+            {
+                "tablas": [
+                    "carrera",
+                    "plan_estudio",
+                    "plan_materia",
+                    "tipo_actividad_catalogo",
+                ],
+                "rutinas": ["fn_generar_num_control", "sp_activar_periodo"],
+                "vistas": [],
+            },
+        )
 
 
 if __name__ == "__main__":
