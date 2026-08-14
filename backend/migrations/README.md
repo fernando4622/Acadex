@@ -39,6 +39,18 @@ El ejecutor:
 4. Respaldar la base antes de cambios destructivos o de transformación de datos.
 5. No incluir credenciales ni datos reales.
 
+## Catálogos académicos vigentes
+
+La migración `004_crear_planes_estudio.sql` establece la relación soportada:
+
+```text
+carrera → plan_estudio → plan_materia → materia
+```
+
+No crea datos institucionales ni intenta reconstruir asociaciones históricas. En una actualización,
+los vínculos existentes deben migrarse con una estrategia de datos explícita antes de retirar cualquier
+estructura anterior.
+
 ## Inventario de scripts SQL heredados
 
 Los archivos de `bd/` todavía no forman una secuencia ejecutable completa. Su clasificación actual es:

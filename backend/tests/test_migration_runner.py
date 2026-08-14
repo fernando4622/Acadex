@@ -48,6 +48,21 @@ class MigrationDiscoveryTests(unittest.TestCase):
 
         self.assertNotEqual(first, second)
 
+    def test_study_plan_migration_uses_the_current_relationship(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        migration = (
+            backend_root / "migrations" / "004_crear_planes_estudio.sql"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("CREATE TABLE IF NOT EXISTS academ.carrera", migration)
+        self.assertIn("CREATE TABLE IF NOT EXISTS academ.plan_estudio", migration)
+        self.assertIn("CREATE TABLE IF NOT EXISTS academ.plan_materia", migration)
+        self.assertIn("UNIQUE (plan_estudio_id, materia_id)", migration)
+        self.assertNotIn(
+            "CREATE TABLE IF NOT EXISTS academ.materia_carrera",
+            migration,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

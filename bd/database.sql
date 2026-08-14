@@ -48,7 +48,32 @@ COMMENT ON TABLE  periodo_academico        IS 'Periodos académicos (semestres, 
 COMMENT ON COLUMN periodo_academico.codigo IS 'Clave única del periodo, ej: 2024-1, 2024A';
 
 -- -------------------------------------
--- A2. ALUMNO
+-- A2. CARRERA Y PLAN DE ESTUDIO
+-- -------------------------------------
+CREATE TABLE carrera (
+    id          SERIAL       PRIMARY KEY,
+    clave       VARCHAR(10)  NOT NULL UNIQUE,
+    nombre      VARCHAR(150) NOT NULL,
+    descripcion TEXT,
+    activo      BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE plan_estudio (
+    id         SERIAL    PRIMARY KEY,
+    carrera_id INT       NOT NULL REFERENCES carrera(id),
+    nombre     TEXT      NOT NULL,
+    vigente    BOOLEAN   DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE carrera IS
+    'Catálogo institucional de carreras o programas académicos.';
+COMMENT ON TABLE plan_estudio IS
+    'Versiones de planes de estudio pertenecientes a una carrera.';
+
+-- -------------------------------------
+-- A3. ALUMNO
 -- usuario_id se agrega en la migración 002_rbac.sql mediante ALTER TABLE
 -- -------------------------------------
 CREATE TABLE alumno (
@@ -73,7 +98,7 @@ CREATE TABLE alumno (
 COMMENT ON TABLE alumno IS 'Catálogo de alumnos de la institución';
 
 -- -------------------------------------
--- A3. DOCENTE
+-- A4. DOCENTE
 -- usuario_id se agrega en la migración 002_rbac.sql mediante ALTER TABLE
 -- -------------------------------------
 CREATE TABLE docente (
@@ -97,7 +122,7 @@ CREATE TABLE docente (
 COMMENT ON TABLE docente IS 'Catálogo de docentes de la institución';
 
 -- -------------------------------------
--- A4. MATERIA
+-- A5. MATERIA
 -- -------------------------------------
 CREATE TABLE materia (
     id         SERIAL       PRIMARY KEY,
@@ -111,6 +136,29 @@ CREATE TABLE materia (
 );
 
 COMMENT ON TABLE materia IS 'Catálogo de materias/asignaturas';
+
+-- -------------------------------------
+-- A6. MATERIAS DE UN PLAN DE ESTUDIO
+-- -------------------------------------
+CREATE TABLE plan_materia (
+    id               SERIAL    PRIMARY KEY,
+    plan_estudio_id   INT       NOT NULL REFERENCES plan_estudio(id),
+    materia_id        INT       NOT NULL REFERENCES materia(id),
+    clave             TEXT      NOT NULL,
+    semestre          INT       NOT NULL,
+    orden             INT       DEFAULT 0,
+    obligatoria       BOOLEAN   DEFAULT TRUE,
+    creditos_override INT,
+    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_plan_materia_clave
+        UNIQUE (plan_estudio_id, clave),
+    CONSTRAINT uq_plan_materia_materia
+        UNIQUE (plan_estudio_id, materia_id)
+);
+
+COMMENT ON TABLE plan_materia IS
+    'Materias incluidas en un plan, con su clave, semestre y orden curricular.';
 
 -- =============================================================================
 -- SECCIÓN B: ESTRUCTURA ACADÉMICA
