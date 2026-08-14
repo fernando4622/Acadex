@@ -78,16 +78,21 @@ COMMENT ON TABLE plan_estudio IS
 -- -------------------------------------
 CREATE TABLE alumno (
     id           UUID         PRIMARY KEY DEFAULT uuidv7(),
-    matricula    VARCHAR(8)  NOT NULL,
+    no_control   VARCHAR(12)  NOT NULL,
     nombre       VARCHAR(100) NOT NULL,
     apellido_pat VARCHAR(100) NOT NULL,
     apellido_mat VARCHAR(100),
+    fecha_nacimiento DATE,
+    curp         VARCHAR(18),
     email        VARCHAR(150),
+    semestre_actual SMALLINT  NOT NULL DEFAULT 1,
+    plan_estudio_id INT       REFERENCES plan_estudio(id),
     activo       BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT uq_alumno_matricula UNIQUE (matricula),
+    CONSTRAINT uq_alumno_no_control UNIQUE (no_control),
+    CONSTRAINT uq_alumno_curp       UNIQUE (curp),
     CONSTRAINT uq_alumno_email     UNIQUE (email),
     CONSTRAINT chk_alumno_email    CHECK (
         email IS NULL OR
@@ -433,7 +438,7 @@ COMMENT ON TABLE auditoria_log IS 'Log inmutable de todas las operaciones críti
 -- =============================================================================
 
 -- Búsqueda de alumnos por matrícula o nombre
-CREATE INDEX idx_alumno_matricula ON alumno(matricula);
+CREATE INDEX idx_alumno_no_control ON alumno(no_control);
 CREATE INDEX idx_alumno_nombre    ON alumno USING gin(to_tsvector('spanish', nombre || ' ' || apellido_pat));
 
 -- Grupos
@@ -748,7 +753,7 @@ BEGIN
     SELECT jsonb_build_object(
         'inscripcion_id',          i.id,
         'alumno',                  al.nombre || ' ' || al.apellido_pat,
-        'matricula',               al.matricula,
+        'no_control',              al.no_control,
         'grupo',                   g.nombre,
         'materia',                 m.nombre,
         'periodo',                 p.codigo,
@@ -1535,14 +1540,14 @@ DECLARE
     v_omit    INT := 0;
 BEGIN
     -- La tabla temporal 'tmp_importacion_alumnos' debe existir con columnas:
-    -- fila_num, matricula, nombre, apellido_pat, apellido_mat, email
+    -- fila_num, no_control, nombre, apellido_pat, apellido_mat, email
     FOR v_fila IN SELECT * FROM tmp_importacion_alumnos ORDER BY fila_num
     LOOP
         BEGIN
-            INSERT INTO academ.alumno (matricula, nombre, apellido_pat, apellido_mat, email)
-            VALUES (v_fila.matricula, v_fila.nombre, v_fila.apellido_pat,
+            INSERT INTO academ.alumno (no_control, nombre, apellido_pat, apellido_mat, email)
+            VALUES (v_fila.no_control, v_fila.nombre, v_fila.apellido_pat,
                     v_fila.apellido_mat, NULLIF(v_fila.email,''))
-            ON CONFLICT (matricula) DO NOTHING;
+            ON CONFLICT (no_control) DO NOTHING;
 
             IF FOUND THEN v_ins  := v_ins  + 1;
             ELSE          v_omit := v_omit + 1;
@@ -1551,7 +1556,7 @@ BEGIN
         EXCEPTION WHEN OTHERS THEN
             v_errores := v_errores || jsonb_build_object(
                 'fila',      v_fila.fila_num,
-                'matricula', v_fila.matricula,
+                'no_control', v_fila.no_control,
                 'error',     SQLERRM
             );
         END;
@@ -1599,7 +1604,7 @@ COMMENT ON VIEW academ.v_suma_ponderaciones IS
 CREATE OR REPLACE VIEW academ.v_resultados_parciales AS
 SELECT
     i.id    AS inscripcion_id,
-    al.matricula,
+    al.no_control,
     al.nombre || ' ' || al.apellido_pat AS alumno,
     g.id    AS grupo_id,
     g.nombre AS grupo,
@@ -1633,7 +1638,7 @@ LEFT JOIN academ.resultado_actividad   ra ON ra.inscripcion_id = i.id AND ra.act
 LEFT JOIN academ.bonus_unidad          bu ON bu.inscripcion_id = i.id AND bu.unidad_id = u.id
 LEFT JOIN academ.resultado_unidad      ru ON ru.inscripcion_id = i.id AND ru.unidad_id = u.id
 WHERE i.estado = 'ACTIVA'
-GROUP BY i.id, al.matricula, al.nombre, al.apellido_pat, g.id, g.nombre,
+GROUP BY i.id, al.no_control, al.nombre, al.apellido_pat, g.id, g.nombre,
          m.nombre, u.id, u.numero, u.nombre, u.estado,
          bu.monto, bu.justificacion, g.calificacion_maxima, ru.resultado_final;
 
@@ -1648,7 +1653,7 @@ SELECT
     m.clave  AS clave_materia,
     p.codigo AS periodo,
     d.nombre || ' ' || d.apellido_pat AS docente,
-    al.matricula,
+    al.no_control,
     al.nombre || ' ' || al.apellido_pat AS alumno,
     i.id     AS inscripcion_id,
     ROUND(rm.promedio_base, 2)       AS promedio_base,
@@ -1691,7 +1696,7 @@ SELECT
     a.id    AS actividad_id,
     c.nombre  AS tipo_nombre,
     a.ponderacion,
-    al.matricula,
+    al.no_control,
     al.nombre || ' ' || al.apellido_pat AS alumno,
     i.id    AS inscripcion_id,
     ra.calificacion,
@@ -1873,7 +1878,7 @@ WITH resultados_grupo AS (
     WHERE i.estado = 'ACTIVA'
 )
 SELECT
-    al.matricula,
+    al.no_control,
     al.nombre || ' ' || al.apellido_pat                              AS alumno,
     m.nombre                                                          AS materia,
     g.nombre                                                          AS grupo,
@@ -2447,7 +2452,7 @@ VALUES
     ('ISC-301', 'Programación Orientada a Objetos', 6),
     ('ISC-401', 'Bases de Datos',                  5);
 
-INSERT INTO academ.alumno (matricula, nombre, apellido_pat, apellido_mat)
+INSERT INTO academ.alumno (no_control, nombre, apellido_pat, apellido_mat)
 VALUES
     ('A001', 'Juan',   'García',    'López'),
     ('A002', 'María',  'Hernández', 'Ruiz'),
@@ -2667,7 +2672,7 @@ SELECT
     academ.fn_roles_usuario(u.id)              AS roles,
     al.id                                       AS alumno_id,
     al.nombre || ' ' || al.apellido_pat         AS alumno_nombre,
-    al.matricula,
+    al.no_control,
     d.id                                        AS docente_id,
     d.nombre  || ' ' || d.apellido_pat          AS docente_nombre,
     d.num_empleado
@@ -2813,11 +2818,11 @@ SELECT id INTO v_periodo_id   FROM academ.periodo_academico WHERE codigo = '2024
 SELECT id INTO v_docente_id   FROM academ.docente            WHERE num_empleado = 'D001';
 SELECT id INTO v_poo_id       FROM academ.materia            WHERE clave = 'ISC-301';
 SELECT id INTO v_bd_id        FROM academ.materia            WHERE clave = 'ISC-401';
-SELECT id INTO v_garcia_id    FROM academ.alumno             WHERE matricula = 'A001';
-SELECT id INTO v_hernandez_id FROM academ.alumno             WHERE matricula = 'A002';
-SELECT id INTO v_torres_id    FROM academ.alumno             WHERE matricula = 'A003';
-SELECT id INTO v_jimenez_id   FROM academ.alumno             WHERE matricula = 'A004';
-SELECT id INTO v_ramirez_id   FROM academ.alumno             WHERE matricula = 'A005';
+SELECT id INTO v_garcia_id    FROM academ.alumno             WHERE no_control = 'A001';
+SELECT id INTO v_hernandez_id FROM academ.alumno             WHERE no_control = 'A002';
+SELECT id INTO v_torres_id    FROM academ.alumno             WHERE no_control = 'A003';
+SELECT id INTO v_jimenez_id   FROM academ.alumno             WHERE no_control = 'A004';
+SELECT id INTO v_ramirez_id   FROM academ.alumno             WHERE no_control = 'A005';
 
 RAISE NOTICE 'Catálogos cargados.';
 
@@ -3020,7 +3025,7 @@ JOIN academ.unidad      u  ON u.id  = ru.unidad_id
 JOIN academ.inscripcion i  ON i.id  = ru.inscripcion_id
 JOIN academ.alumno      al ON al.id = i.alumno_id
 JOIN academ.grupo       g  ON g.id  = i.grupo_id
-WHERE al.matricula = 'A001' AND g.nombre = 'POO-A'
+WHERE al.no_control = 'A001' AND g.nombre = 'POO-A'
 ORDER BY u.numero;
 
 SELECT '=== Q2: RESULTADOS FINALES POO-A ===' AS info;
@@ -3046,12 +3051,12 @@ JOIN academ.unidad      u  ON u.id  = ru.unidad_id
 JOIN academ.inscripcion i  ON i.id  = ru.inscripcion_id
 JOIN academ.alumno      al ON al.id = i.alumno_id
 JOIN academ.grupo       g  ON g.id  = i.grupo_id
-WHERE al.matricula = 'A002' AND g.nombre = 'POO-A' AND u.numero = 1;
+WHERE al.no_control = 'A002' AND g.nombre = 'POO-A' AND u.numero = 1;
 
 SELECT '=== Q5: OVERRIDE — Torres POO-A ===' AS info;
 SELECT alumno, resultado_calculado, resultado_override, resultado_final, estatus
 FROM academ.v_resultados_finales
-WHERE matricula = 'A003' AND grupo = 'POO-A';
+WHERE no_control = 'A003' AND grupo = 'POO-A';
 
 SELECT '=== Q6: INTEGRIDAD DE PONDERACIONES ===' AS info;
 SELECT grupo_nombre, unidad_nombre, suma_ponderaciones, estructura_completa
@@ -3064,7 +3069,7 @@ BEGIN
     SELECT i.id INTO v_insc FROM academ.inscripcion i
     JOIN academ.alumno al ON al.id=i.alumno_id
     JOIN academ.grupo  g  ON g.id=i.grupo_id
-    WHERE al.matricula='A004' AND g.nombre='POO-B';
+    WHERE al.no_control='A004' AND g.nombre='POO-B';
 
     SELECT a.id INTO v_act FROM academ.actividad a
     JOIN academ.unidad u ON u.id=a.unidad_id

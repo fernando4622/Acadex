@@ -63,6 +63,18 @@ class MigrationDiscoveryTests(unittest.TestCase):
             migration,
         )
 
+    def test_student_migration_preserves_identifiers_under_current_name(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        migration = (
+            backend_root / "migrations" / "005_alinear_alumnos.sql"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("RENAME COLUMN matricula TO no_control", migration)
+        self.assertIn("ADD COLUMN IF NOT EXISTS plan_estudio_id", migration)
+        self.assertIn("ADD COLUMN IF NOT EXISTS semestre_actual", migration)
+        self.assertNotIn("DROP COLUMN matricula", migration)
+        self.assertNotIn("ALTER COLUMN no_control TYPE", migration)
+
 
 if __name__ == "__main__":
     unittest.main()

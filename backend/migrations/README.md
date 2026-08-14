@@ -51,6 +51,11 @@ No crea datos institucionales ni intenta reconstruir asociaciones históricas. E
 los vínculos existentes deben migrarse con una estrategia de datos explícita antes de retirar cualquier
 estructura anterior.
 
+La migración `005_alinear_alumnos.sql` adopta `no_control` como nombre vigente. Cuando encuentra
+`matricula` en una instalación anterior, renombra la columna en lugar de copiar o regenerar valores.
+También incorpora la relación opcional con `plan_estudio` y los datos actuales de identificación
+académica (`curp`, fecha de nacimiento y semestre).
+
 ## Inventario de scripts SQL heredados
 
 Los archivos de `bd/` todavía no forman una secuencia ejecutable completa. Su clasificación actual es:

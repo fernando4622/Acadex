@@ -202,13 +202,20 @@ def _columnas_create_table(contenido: str) -> dict[str, set[str]]:
 
 def _columnas_alter_table(contenido: str) -> dict[str, set[str]]:
     encontrados: dict[str, set[str]] = {}
-    patron = re.compile(
-        r"\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:academ\.)?([a-z_][a-z0-9_]*)"
-        r"[\s\S]*?\bADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z_][a-z0-9_]*)",
+    patron_tabla = re.compile(
+        r"^\s*ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:academ\.)?([a-z_][a-z0-9_]*)",
         re.IGNORECASE,
     )
-    for tabla, columna in patron.findall(contenido):
-        encontrados.setdefault(tabla.lower(), set()).add(columna.lower())
+    patron_columna = re.compile(
+        r"\bADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z_][a-z0-9_]*)",
+        re.IGNORECASE,
+    )
+    for sentencia in contenido.split(";"):
+        tabla = patron_tabla.search(sentencia)
+        if not tabla:
+            continue
+        for columna in patron_columna.findall(sentencia):
+            encontrados.setdefault(tabla.group(1).lower(), set()).add(columna.lower())
     return encontrados
 
 
