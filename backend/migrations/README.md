@@ -108,6 +108,16 @@ Para comprobar estáticamente lo que producirían `bd/database.sql` y las migrac
 python -m scripts.verificar_esquema --bootstrap ../bd/database.sql
 ```
 
+Para construir una base temporal real, aplicar el bootstrap y todas las migraciones, verificar su
+contrato y eliminarla automáticamente al terminar:
+
+```powershell
+python -m scripts.verificar_instalacion_limpia
+```
+
+El usuario configurado debe tener permiso `CREATEDB`. La herramienta solo elimina nombres aleatorios
+con el prefijo `acadex_validacion_`; no reutiliza ni modifica la base indicada en `DB_NAME`.
+
 Mientras la consolidación siga pendiente, este segundo comando termina con código `1` y enumera
 los objetos y columnas vigentes que todavía no están declarados por el camino de instalación limpio.
 El contrato usa exclusivamente los nombres actuales (`no_control`, `plan_materia_id`, `estado` y

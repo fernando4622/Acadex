@@ -2110,8 +2110,8 @@ SELECT
     END                                                 AS estatus_plazo,
     ra.calificacion,
     ra.estado_entrega,
-    ra.created_at                                       AS fecha_registro,
-    ra.updated_at                                       AS fecha_modificacion
+    ra.fecha_registro,
+    ra.fecha_modificacion
 FROM academ.inscripcion            i
 JOIN academ.grupo                  g  ON g.id = i.grupo_id
 JOIN academ.plan_materia           pm ON pm.id = g.plan_materia_id
@@ -2947,6 +2947,7 @@ DECLARE
     -- Catálogos existentes desde schemav3.sql
     v_periodo_id    INT;
     v_docente_id    UUID;
+    v_usuario_docente_id UUID;
     v_poo_id        INT;
     v_bd_id         INT;
     v_poo_pm_id     INT;
@@ -3034,8 +3035,26 @@ SELECT id INTO v_ramirez_id   FROM academ.alumno             WHERE no_control = 
 
 RAISE NOTICE 'Catálogos cargados.';
 
--- Las cuentas de acceso para datos de demostración deben crearse explícitamente.
--- El esquema no distribuye contraseñas conocidas para docentes ni administradores.
+-- Actor interno deshabilitado para ejecutar el flujo demo con la misma autorización
+-- que usa la API. Su contraseña es aleatoria, no se muestra y no puede reutilizarse.
+INSERT INTO academ.usuario (email, password_hash, activo)
+VALUES (
+    'docente.demo@acadex.invalid',
+    crypt(encode(gen_random_bytes(32), 'hex'), gen_salt('bf', 12)),
+    FALSE
+)
+RETURNING id INTO v_usuario_docente_id;
+
+UPDATE academ.docente
+SET usuario_id = v_usuario_docente_id
+WHERE id = v_docente_id;
+
+INSERT INTO academ.usuario_rol (usuario_id, rol_id)
+SELECT v_usuario_docente_id, id
+FROM academ.rol
+WHERE nombre = 'DOCENTE';
+
+PERFORM set_config('app.usuario_id', v_usuario_docente_id::TEXT, TRUE);
 
 -- ─── BLOQUE 3: Grupos ─────────────────────────────────────────────────────────
 
