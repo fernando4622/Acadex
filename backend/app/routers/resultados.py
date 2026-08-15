@@ -19,7 +19,7 @@ async def resultados_del_grupo(
 ):
     await assert_can_read_group_results(conn, user, grupo_id)
     rows = await conn.fetch(
-        """SELECT alumno,no_control AS matricula,inscripcion_id,promedio_base,bonus_materia,justificacion,
+        """SELECT alumno,no_control,inscripcion_id,promedio_base,bonus_materia,justificacion,
                   resultado_calculado,resultado_override,resultado_final,estatus,
                   justificacion_override,fecha_calculo
            FROM academ.v_resultados_finales
@@ -96,7 +96,7 @@ async def resultados_por_unidad(
 ):
     await assert_can_read_group_results(conn, user, grupo_id)
     rows = await conn.fetch(
-        """SELECT vp.no_control AS matricula,vp.alumno,vp.inscripcion_id,
+        """SELECT vp.no_control,vp.alumno,vp.inscripcion_id,
                   vp.unidad_id,vp.unidad_numero,vp.unidad_nombre,vp.unidad_estado,
                   COALESCE(vp.resultado_persistido,vp.resultado_estimado) AS resultado,
                   vp.bonus_unidad, vp.justificacion, vp.promedio_parcial,

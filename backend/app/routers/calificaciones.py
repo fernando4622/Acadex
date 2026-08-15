@@ -25,7 +25,7 @@ async def listar_calificaciones(
     _: dict = Depends(require_docente_o_admin),
 ):
     rows = await conn.fetch(
-        """SELECT i.id AS inscripcion_id, a.no_control AS matricula,
+        """SELECT i.id AS inscripcion_id, a.no_control,
                   a.nombre||' '||a.apellido_pat||COALESCE(' '||a.apellido_mat,'') AS alumno,
                   ra.id AS resultado_id, ra.calificacion, ra.estado_entrega,
                   ra.fecha_registro, ra.fecha_modificacion,

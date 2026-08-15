@@ -150,7 +150,7 @@ export default function Resultados() {
         resUnidades.forEach(ru => {
           if (!alumnosMap.has(ru.inscripcion_id)) {
             alumnosMap.set(ru.inscripcion_id, {
-              matricula: ru.matricula,
+              no_control: ru.no_control,
               alumno: ru.alumno,
               unidades: {}
             });
@@ -163,7 +163,7 @@ export default function Resultados() {
           const suma = unidadesCerradas.reduce((acc, u) => acc + (a.unidades[u.id] || 0), 0);
           const prom = suma / unidadesCerradas.length;
           return [
-            a.matricula,
+            a.no_control,
             a.alumno,
             ...valsUnidades,
             prom.toFixed(2),

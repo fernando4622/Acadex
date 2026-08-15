@@ -949,7 +949,7 @@ export default function Alumnos() {
                   <p className="font-black uppercase tracking-wider mb-1">Instrucciones del CSV</p>
                   <p>El sistema es flexible con los encabezados (puede usar mayúsculas o minúsculas):</p>
                   <ul className="list-disc list-inside mt-1 font-mono text-[16px] opacity-80">
-                    <li>numero_control</li>
+                    <li>no_control</li>
                     <li>nombre, apellido_pat, apellido_mat</li>
                     <li>fecha (o fecha_nacimiento): YYYY-MM-DD</li>
                     <li>curp: 18 caracteres (opcional)</li>

@@ -492,7 +492,7 @@ function GruposAdmin() {
                 <div className="text-sm text-brand-900 leading-relaxed">
                   <p className="font-black uppercase tracking-wider mb-1">Formato del archivo CSV</p>
                   <ul className="list-disc list-inside mt-1 font-mono text-xs opacity-80 space-y-0.5">
-                    <li><span className="font-bold">numero_control</span> — No. de control del alumno</li>
+                    <li><span className="font-bold">no_control</span> — No. de control del alumno</li>
                     <li><span className="font-bold">nombre</span> (o <span className="font-bold">grupo</span>) — Nombre exacto del grupo (ej: EJ26 1J1A)</li>
                   </ul>
                   <p className="mt-2 text-[10px] opacity-70">Puedes mezclar alumnos y grupos distintos. Si la materia es multi-carrera, agrega la columna <span className="font-mono">carrera</span> (ej. ISC).</p>
@@ -528,7 +528,7 @@ function GruposAdmin() {
                     {inscPreview.map((r, idx) => (
                       <tr key={idx} className={r.error ? 'bg-rose-50/40' : r.ya_inscrito ? 'bg-amber-50/40' : 'bg-white'}>
                         <td className="px-3 py-2 text-xs font-mono text-slate-400">{r.fila}</td>
-                        <td className="px-3 py-2 font-mono text-xs font-bold text-brand-600">{r.matricula}</td>
+                        <td className="px-3 py-2 font-mono text-xs font-bold text-brand-600">{r.no_control}</td>
                         <td className="px-3 py-2 text-xs font-semibold text-slate-700">{r.alumno_nombre || <span className="text-rose-400 italic">No encontrado</span>}</td>
                         <td className="px-3 py-2 text-xs font-mono text-slate-600">{r.grupo}</td>
                         <td className="px-3 py-2 text-xs text-slate-500">{r.carrera || '—'}</td>

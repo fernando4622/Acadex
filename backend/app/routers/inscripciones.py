@@ -139,8 +139,8 @@ async def inscribir_alumno(
 
     try:
         row = await conn.fetchrow(
-            "INSERT INTO academ.inscripcion (alumno_id,grupo_id,periodo_id,fecha_inscripcion) VALUES ($1,$2,$3,$4) RETURNING id,alumno_id,grupo_id,periodo_id,fecha_inscripcion,estado",
-            body.alumno_id, grupo_id, periodo_id, fecha,
+            "INSERT INTO academ.inscripcion (alumno_id,grupo_id,fecha_inscripcion) VALUES ($1,$2,$3) RETURNING id,alumno_id,grupo_id,fecha_inscripcion,estado",
+            body.alumno_id, grupo_id, fecha,
         )
     except Exception:
         raise HTTPException(409, detail={"codigo": "DUPLICADO", "mensaje": "El alumno ya está inscrito en este grupo."})
@@ -149,7 +149,7 @@ async def inscribir_alumno(
 @router.post("/grupos/{grupo_id}/importar-csv")
 async def importar_inscripciones_csv(
     grupo_id: UUID,
-    archivo: UploadFile = File(..., description="CSV con 1 columna: matricula (No. Control)"),
+    archivo: UploadFile = File(..., description="CSV con 1 columna: no_control"),
     conn: Connection = Depends(get_conn),
     _: dict = Depends(require_admin),
 ):
@@ -198,9 +198,9 @@ async def importar_inscripciones_csv(
     )
 
     for i, fila in enumerate(filas, start=2):
-        identificador = fila.get("matricula") or fila.get("num_control")
+        identificador = fila.get("no_control") or fila.get("matricula") or fila.get("num_control")
         if not identificador:
-            errores.append({"fila": i, "error": "Falta columna 'matricula' (No. Control)."})
+            errores.append({"fila": i, "error": "Falta columna 'no_control'."})
             continue
             
         # Buscar alumno y su carrera
@@ -261,8 +261,8 @@ async def importar_inscripciones_csv(
                 continue
 
             result = await conn.execute(
-                "INSERT INTO academ.inscripcion (alumno_id,grupo_id,periodo_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
-                alumno_id, grupo_id, periodo_id
+                "INSERT INTO academ.inscripcion (alumno_id,grupo_id) VALUES ($1,$2) ON CONFLICT DO NOTHING",
+                alumno_id, grupo_id
             )
             if result == "INSERT 0 1": ins += 1
             else: omit += 1
@@ -280,9 +280,9 @@ async def listar_inscripciones(
     _: dict = Depends(require_docente_o_admin),
 ):
     rows = await conn.fetch(
-        """SELECT i.id, i.alumno_id, i.grupo_id, i.periodo_id, i.fecha_inscripcion, i.estado,
+        """SELECT i.id, i.alumno_id, i.grupo_id, i.fecha_inscripcion, i.estado,
                   a.nombre || ' ' || a.apellido_pat || ' ' || COALESCE(a.apellido_mat, '') AS alumno_nombre,
-                  a.no_control AS alumno_matricula
+                  a.no_control AS alumno_no_control
            FROM academ.inscripcion i
            JOIN academ.alumno a ON a.id=i.alumno_id
            WHERE i.grupo_id=$1 ORDER BY a.apellido_pat""",

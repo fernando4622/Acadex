@@ -188,7 +188,7 @@ async def alumnos_del_grupo(
         assert_docente_en_grupo(user, grupo_id)
         rows = await conn.fetch(
             """SELECT i.id AS inscripcion_id, i.estado AS estado_inscripcion,
-                      a.id AS alumno_id, a.no_control AS matricula,
+                      a.id AS alumno_id, a.no_control,
                       a.nombre || ' ' || a.apellido_pat || ' ' || COALESCE(a.apellido_mat, '') AS alumno
                FROM academ.inscripcion i
                JOIN academ.alumno a ON a.id=i.alumno_id
