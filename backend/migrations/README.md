@@ -118,6 +118,17 @@ python -m scripts.verificar_instalacion_limpia
 El usuario configurado debe tener permiso `CREATEDB`. La herramienta solo elimina nombres aleatorios
 con el prefijo `acadex_validacion_`; no reutiliza ni modifica la base indicada en `DB_NAME`.
 
+Antes de actualizar una instalación existente, el comando siguiente crea un respaldo permanente,
+lo restaura en una base temporal, aplica solo las migraciones pendientes, compara cantidades de datos
+críticos y verifica el contrato resultante:
+
+```powershell
+python -m scripts.verificar_actualizacion
+```
+
+Los respaldos quedan fuera de Git en `backend/tmp/backups/`. La base original no se modifica durante
+esta verificación; la copia temporal se elimina incluso cuando una migración falla.
+
 Mientras la consolidación siga pendiente, este segundo comando termina con código `1` y enumera
 los objetos y columnas vigentes que todavía no están declarados por el camino de instalación limpio.
 El contrato usa exclusivamente los nombres actuales (`no_control`, `plan_materia_id`, `estado` y
