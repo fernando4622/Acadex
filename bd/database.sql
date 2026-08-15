@@ -37,11 +37,13 @@ CREATE TABLE periodo_academico (
     nombre       VARCHAR(100) NOT NULL,
     fecha_inicio DATE         NOT NULL,
     fecha_fin    DATE         NOT NULL,
-    activo       BOOLEAN      NOT NULL DEFAULT TRUE,
+    estado       VARCHAR(20)  NOT NULL DEFAULT 'proximo',
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_periodo_codigo  UNIQUE (codigo),
-    CONSTRAINT chk_periodo_fechas CHECK (fecha_fin > fecha_inicio)
+    CONSTRAINT chk_periodo_fechas CHECK (fecha_fin > fecha_inicio),
+    CONSTRAINT chk_periodo_estado CHECK (estado IN ('proximo','activo','cerrado'))
 );
 
 COMMENT ON TABLE  periodo_academico        IS 'Periodos académicos (semestres, cuatrimestres, etc.)';
@@ -826,6 +828,10 @@ CREATE TRIGGER tg_docente_updated_at
 
 CREATE TRIGGER tg_grupo_updated_at
     BEFORE UPDATE ON academ.grupo
+    FOR EACH ROW EXECUTE FUNCTION academ.fn_tg_updated_at();
+
+CREATE TRIGGER tg_periodo_updated_at
+    BEFORE UPDATE ON academ.periodo_academico
     FOR EACH ROW EXECUTE FUNCTION academ.fn_tg_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -2441,8 +2447,8 @@ CREATE TRIGGER tg_bonus_materia_bloquear_finalizado
 -- SECCIÓN N: DATOS DE CONFIGURACIÓN INICIAL
 -- =============================================================================
 
-INSERT INTO academ.periodo_academico (codigo, nombre, fecha_inicio, fecha_fin)
-VALUES ('2024-1', 'Enero-Junio 2024', '2024-01-15', '2024-06-30');
+INSERT INTO academ.periodo_academico (codigo, nombre, fecha_inicio, fecha_fin, estado)
+VALUES ('2024-1', 'Enero-Junio 2024', '2024-01-15', '2024-06-30', 'cerrado');
 
 INSERT INTO academ.docente (num_empleado, nombre, apellido_pat, apellido_mat, email)
 VALUES ('D001', 'Carlos', 'Martínez', 'García', 'c.martinez@escuela.edu');

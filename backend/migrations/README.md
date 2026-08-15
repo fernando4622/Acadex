@@ -56,6 +56,11 @@ La migración `005_alinear_alumnos.sql` adopta `no_control` como nombre vigente.
 También incorpora la relación opcional con `plan_estudio` y los datos actuales de identificación
 académica (`curp`, fecha de nacimiento y semestre).
 
+La migración `006_alinear_periodos.sql` reemplaza el indicador booleano histórico `activo` por el
+estado de dominio actual (`proximo`, `activo` o `cerrado`). Al actualizar una instalación antigua,
+un valor verdadero se conserva como `activo` y uno falso como `cerrado`. El trigger de actualización
+mantiene `updated_at` sin depender de cada consumidor.
+
 ## Inventario de scripts SQL heredados
 
 Los archivos de `bd/` todavía no forman una secuencia ejecutable completa. Su clasificación actual es:

@@ -410,7 +410,7 @@ async def riesgo_academico(
     # Si no se da periodo, usar el activo
     if not periodo_id:
         periodo_id = await conn.fetchval(
-            "SELECT id FROM academ.periodo_academico WHERE activo = TRUE LIMIT 1"
+            "SELECT id FROM academ.periodo_academico WHERE estado = 'activo' LIMIT 1"
         )
     if not periodo_id:
         return {"periodo_id": None, "alumnos": [], "resumen": {}}
@@ -481,7 +481,7 @@ async def estado_captura(
     """
     if not periodo_id:
         periodo_id = await conn.fetchval(
-            "SELECT id FROM academ.periodo_academico WHERE activo = TRUE LIMIT 1"
+            "SELECT id FROM academ.periodo_academico WHERE estado = 'activo' LIMIT 1"
         )
 
     rows = await conn.fetch(

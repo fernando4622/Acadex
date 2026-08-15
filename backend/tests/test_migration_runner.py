@@ -75,6 +75,30 @@ class MigrationDiscoveryTests(unittest.TestCase):
         self.assertNotIn("DROP COLUMN matricula", migration)
         self.assertNotIn("ALTER COLUMN no_control TYPE", migration)
 
+    def test_period_migration_preserves_legacy_state_meaning(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        migration = (
+            backend_root / "migrations" / "006_alinear_periodos.sql"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("CASE WHEN activo THEN 'activo' ELSE 'cerrado' END", migration)
+        self.assertIn("DROP COLUMN IF EXISTS activo", migration)
+        self.assertIn("CHECK (estado IN ('proximo', 'activo', 'cerrado'))", migration)
+        self.assertIn("tg_periodo_updated_at", migration)
+
+    def test_supported_period_queries_do_not_use_legacy_active_flag(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        sources = (
+            backend_root / "app" / "routers" / "docentes.py",
+            backend_root / "app" / "routers" / "periodos.py",
+            backend_root / "app" / "routers" / "reportes.py",
+        )
+
+        for source in sources:
+            content = source.read_text(encoding="utf-8")
+            self.assertNotIn("p.activo", content, source)
+            self.assertNotIn("periodo_academico WHERE activo", content, source)
+
 
 if __name__ == "__main__":
     unittest.main()
