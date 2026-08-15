@@ -42,7 +42,7 @@ async def boleta_alumno(
 
     # Datos del alumno
     alumno = await conn.fetchrow(
-        """SELECT a.matricula, a.no_control,
+        """SELECT a.no_control,
                   a.nombre || ' ' || a.apellido_pat || COALESCE(' ' || a.apellido_mat, '') AS nombre_completo,
                   a.email,
                   c.nombre AS carrera,

@@ -99,6 +99,24 @@ class MigrationDiscoveryTests(unittest.TestCase):
             self.assertNotIn("p.activo", content, source)
             self.assertNotIn("periodo_academico WHERE activo", content, source)
 
+    def test_group_migration_only_maps_unambiguous_study_plan_membership(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        migration = (
+            backend_root / "migrations" / "007_alinear_grupos.sql"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("HAVING COUNT(*) = 1", migration)
+        self.assertIn("grupos_sin_plan", migration)
+        self.assertIn("ALTER COLUMN plan_materia_id SET NOT NULL", migration)
+        self.assertNotIn("DROP COLUMN materia_id", migration)
+
+    def test_supported_backend_does_not_join_groups_by_legacy_subject_id(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        for source in (backend_root / "app").rglob("*.py"):
+            content = source.read_text(encoding="utf-8")
+            self.assertNotIn("g.materia_id", content, source)
+            self.assertNotIn("a.matricula", content, source)
+
 
 if __name__ == "__main__":
     unittest.main()

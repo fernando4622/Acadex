@@ -178,15 +178,15 @@ COMMENT ON TABLE plan_materia IS
 CREATE TABLE grupo (
     id                  UUID         PRIMARY KEY DEFAULT uuidv7(),
     nombre              VARCHAR(50)  NOT NULL,
-    materia_id          INT          NOT NULL REFERENCES materia(id),
+    plan_materia_id     INT          NOT NULL REFERENCES plan_materia(id),
     docente_id          UUID         NOT NULL REFERENCES docente(id),
     periodo_id          INT          NOT NULL REFERENCES periodo_academico(id),
     calificacion_maxima NUMERIC(6,3) NOT NULL DEFAULT 100.00,
     estado              VARCHAR(20)  NOT NULL DEFAULT 'ACTIVO',
+    letra_grupo         VARCHAR(5),
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT uq_grupo_nombre_materia_periodo UNIQUE (nombre, materia_id, periodo_id),
     CONSTRAINT chk_grupo_estado                CHECK (estado IN ('ACTIVO','PRECIERRE','FINALIZADO')),
     CONSTRAINT chk_grupo_cal_max               CHECK (calificacion_maxima > 0)
 );
@@ -444,7 +444,7 @@ CREATE INDEX idx_alumno_no_control ON alumno(no_control);
 CREATE INDEX idx_alumno_nombre    ON alumno USING gin(to_tsvector('spanish', nombre || ' ' || apellido_pat));
 
 -- Grupos
-CREATE INDEX idx_grupo_materia ON grupo(materia_id);
+CREATE INDEX idx_grupo_plan_materia ON grupo(plan_materia_id);
 CREATE INDEX idx_grupo_docente ON grupo(docente_id);
 CREATE INDEX idx_grupo_periodo ON grupo(periodo_id);
 
@@ -1637,7 +1637,8 @@ SELECT
 FROM academ.inscripcion i
 JOIN academ.alumno  al ON al.id = i.alumno_id
 JOIN academ.grupo   g  ON g.id  = i.grupo_id
-JOIN academ.materia m  ON m.id  = g.materia_id
+JOIN academ.plan_materia pm ON pm.id = g.plan_materia_id
+JOIN academ.materia m  ON m.id  = pm.materia_id
 JOIN academ.unidad  u  ON u.grupo_id = g.id
 LEFT JOIN academ.actividad             a  ON a.unidad_id = u.id AND a.activa = TRUE
 LEFT JOIN academ.resultado_actividad   ra ON ra.inscripcion_id = i.id AND ra.actividad_id = a.id
@@ -1754,7 +1755,8 @@ SELECT
     (SELECT resultado_final FROM academ.fn_calcular_resultado_materia(i.id)) AS resultado_final
 FROM academ.inscripcion i
 JOIN academ.grupo g ON g.id = i.grupo_id
-JOIN academ.materia m ON m.id = g.materia_id
+JOIN academ.plan_materia pm ON pm.id = g.plan_materia_id
+JOIN academ.materia m ON m.id = pm.materia_id
 JOIN academ.docente d ON d.id = g.docente_id;
 
 
@@ -1785,7 +1787,8 @@ WITH promedios_grupo AS (
         ROUND(STDDEV(rm.resultado_final)::NUMERIC, 2)   AS desviacion_estandar
     FROM academ.grupo              g
     JOIN academ.docente            d  ON d.id = g.docente_id
-    JOIN academ.materia            m  ON m.id = g.materia_id
+    JOIN academ.plan_materia       pm ON pm.id = g.plan_materia_id
+    JOIN academ.materia            m  ON m.id = pm.materia_id
     JOIN academ.periodo_academico  p  ON p.id = g.periodo_id
     JOIN academ.inscripcion        i  ON i.grupo_id = g.id AND i.estado = 'ACTIVA'
     LEFT JOIN academ.resultado_materia rm ON rm.inscripcion_id = i.id
@@ -1800,7 +1803,8 @@ promedio_materia_periodo AS (
     FROM academ.resultado_materia rm
     JOIN academ.inscripcion       i  ON i.id  = rm.inscripcion_id
     JOIN academ.grupo             g  ON g.id  = i.grupo_id
-    JOIN academ.materia           m  ON m.id  = g.materia_id
+    JOIN academ.plan_materia      pm ON pm.id = g.plan_materia_id
+    JOIN academ.materia           m  ON m.id  = pm.materia_id
     JOIN academ.periodo_academico p  ON p.id  = g.periodo_id
     GROUP BY m.id, p.codigo
 )
@@ -1852,7 +1856,8 @@ SELECT
         / NULLIF(COUNT(i.id), 0)
     , 1)                                                          AS eficiencia_terminal_pct
 FROM academ.grupo              g
-JOIN academ.materia            m  ON m.id = g.materia_id
+JOIN academ.plan_materia       pm ON pm.id = g.plan_materia_id
+JOIN academ.materia            m  ON m.id = pm.materia_id
 JOIN academ.docente            d  ON d.id = g.docente_id
 JOIN academ.periodo_academico  p  ON p.id = g.periodo_id
 JOIN academ.inscripcion        i  ON i.grupo_id = g.id AND i.estado = 'ACTIVA'
@@ -1906,7 +1911,8 @@ FROM resultados_grupo rg
 JOIN academ.alumno            al ON al.id = rg.alumno_id
 JOIN academ.inscripcion       i  ON i.id  = rg.inscripcion_id
 JOIN academ.grupo             g  ON g.id  = rg.grupo_id
-JOIN academ.materia           m  ON m.id  = g.materia_id
+JOIN academ.plan_materia      pm ON pm.id = g.plan_materia_id
+JOIN academ.materia           m  ON m.id  = pm.materia_id
 JOIN academ.periodo_academico p  ON p.id  = g.periodo_id;
 
 COMMENT ON VIEW academ.v_analitica_alumno IS
@@ -1949,7 +1955,8 @@ SELECT
     ra.updated_at                                       AS fecha_modificacion
 FROM academ.inscripcion            i
 JOIN academ.grupo                  g  ON g.id = i.grupo_id
-JOIN academ.materia                m  ON g.materia_id = m.id
+JOIN academ.plan_materia           pm ON pm.id = g.plan_materia_id
+JOIN academ.materia                m  ON pm.materia_id = m.id
 JOIN academ.unidad                 u  ON u.grupo_id = g.id
 JOIN academ.actividad              a  ON a.unidad_id = u.id AND a.activa = TRUE
 LEFT JOIN academ.tipo_actividad_catalogo c ON a.tipo_catalogo_id = c.id
@@ -2458,6 +2465,24 @@ VALUES
     ('ISC-301', 'Programación Orientada a Objetos', 6),
     ('ISC-401', 'Bases de Datos',                  5);
 
+INSERT INTO academ.carrera (clave, nombre)
+VALUES ('ISC', 'Ingeniería en Sistemas Computacionales');
+
+INSERT INTO academ.plan_estudio (carrera_id, nombre, vigente)
+SELECT id, 'Plan de demostración', TRUE
+FROM academ.carrera
+WHERE clave = 'ISC';
+
+INSERT INTO academ.plan_materia
+    (plan_estudio_id, materia_id, clave, semestre, orden, obligatoria)
+SELECT pe.id, m.id, m.clave,
+       CASE m.clave WHEN 'ISC-301' THEN 3 ELSE 4 END,
+       1, TRUE
+FROM academ.plan_estudio pe
+JOIN academ.carrera c ON c.id = pe.carrera_id AND c.clave = 'ISC'
+JOIN academ.materia m ON m.clave IN ('ISC-301', 'ISC-401')
+WHERE pe.nombre = 'Plan de demostración';
+
 INSERT INTO academ.alumno (no_control, nombre, apellido_pat, apellido_mat)
 VALUES
     ('A001', 'Juan',   'García',    'López'),
@@ -2465,6 +2490,14 @@ VALUES
     ('A003', 'Pedro',  'Torres',    'Sánchez'),
     ('A004', 'Laura',  'Jiménez',   'Flores'),
     ('A005', 'Carlos', 'Ramírez',   'Cruz');
+
+UPDATE academ.alumno
+SET plan_estudio_id = (
+    SELECT pe.id
+    FROM academ.plan_estudio pe
+    JOIN academ.carrera c ON c.id = pe.carrera_id
+    WHERE c.clave = 'ISC' AND pe.nombre = 'Plan de demostración'
+);
 
 -- =============================================================================
 -- FIN DEL SCRIPT
@@ -2757,6 +2790,8 @@ DECLARE
     v_docente_id    UUID;
     v_poo_id        INT;
     v_bd_id         INT;
+    v_poo_pm_id     INT;
+    v_bd_pm_id      INT;
     v_garcia_id     UUID;
     v_hernandez_id  UUID;
     v_torres_id     UUID;
@@ -2824,6 +2859,14 @@ SELECT id INTO v_periodo_id   FROM academ.periodo_academico WHERE codigo = '2024
 SELECT id INTO v_docente_id   FROM academ.docente            WHERE num_empleado = 'D001';
 SELECT id INTO v_poo_id       FROM academ.materia            WHERE clave = 'ISC-301';
 SELECT id INTO v_bd_id        FROM academ.materia            WHERE clave = 'ISC-401';
+SELECT pm.id INTO v_poo_pm_id
+FROM academ.plan_materia pm
+JOIN academ.materia m ON m.id = pm.materia_id
+WHERE m.clave = 'ISC-301';
+SELECT pm.id INTO v_bd_pm_id
+FROM academ.plan_materia pm
+JOIN academ.materia m ON m.id = pm.materia_id
+WHERE m.clave = 'ISC-401';
 SELECT id INTO v_garcia_id    FROM academ.alumno             WHERE no_control = 'A001';
 SELECT id INTO v_hernandez_id FROM academ.alumno             WHERE no_control = 'A002';
 SELECT id INTO v_torres_id    FROM academ.alumno             WHERE no_control = 'A003';
@@ -2837,17 +2880,17 @@ RAISE NOTICE 'Catálogos cargados.';
 
 -- ─── BLOQUE 3: Grupos ─────────────────────────────────────────────────────────
 
-INSERT INTO academ.grupo (nombre, materia_id, docente_id, periodo_id, calificacion_maxima)
-VALUES ('POO-A', v_poo_id, v_docente_id, v_periodo_id, 100) RETURNING id INTO v_poo_a_id;
+INSERT INTO academ.grupo (nombre, plan_materia_id, docente_id, periodo_id, calificacion_maxima)
+VALUES ('POO-A', v_poo_pm_id, v_docente_id, v_periodo_id, 100) RETURNING id INTO v_poo_a_id;
 
-INSERT INTO academ.grupo (nombre, materia_id, docente_id, periodo_id, calificacion_maxima)
-VALUES ('POO-B', v_poo_id, v_docente_id, v_periodo_id, 100) RETURNING id INTO v_poo_b_id;
+INSERT INTO academ.grupo (nombre, plan_materia_id, docente_id, periodo_id, calificacion_maxima)
+VALUES ('POO-B', v_poo_pm_id, v_docente_id, v_periodo_id, 100) RETURNING id INTO v_poo_b_id;
 
-INSERT INTO academ.grupo (nombre, materia_id, docente_id, periodo_id, calificacion_maxima)
-VALUES ('BD-A',  v_bd_id,  v_docente_id, v_periodo_id, 100) RETURNING id INTO v_bd_a_id;
+INSERT INTO academ.grupo (nombre, plan_materia_id, docente_id, periodo_id, calificacion_maxima)
+VALUES ('BD-A',  v_bd_pm_id,  v_docente_id, v_periodo_id, 100) RETURNING id INTO v_bd_a_id;
 
-INSERT INTO academ.grupo (nombre, materia_id, docente_id, periodo_id, calificacion_maxima)
-VALUES ('BD-B',  v_bd_id,  v_docente_id, v_periodo_id, 100) RETURNING id INTO v_bd_b_id;
+INSERT INTO academ.grupo (nombre, plan_materia_id, docente_id, periodo_id, calificacion_maxima)
+VALUES ('BD-B',  v_bd_pm_id,  v_docente_id, v_periodo_id, 100) RETURNING id INTO v_bd_b_id;
 
 -- ─── BLOQUE 4: Inscripciones ──────────────────────────────────────────────────
 

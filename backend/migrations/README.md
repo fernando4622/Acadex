@@ -61,6 +61,12 @@ estado de dominio actual (`proximo`, `activo` o `cerrado`). Al actualizar una in
 un valor verdadero se conserva como `activo` y uno falso como `cerrado`. El trigger de actualización
 mantiene `updated_at` sin depender de cada consumidor.
 
+La migración `007_alinear_grupos.sql` adopta `plan_materia_id` como la relación curricular vigente.
+Solo convierte automáticamente un grupo histórico cuando su materia aparece exactamente una vez en
+`plan_materia`. Si la relación falta o es ambigua, la migración aborta sin cambios para que la asociación
+se resuelva explícitamente. La columna histórica puede conservarse temporalmente en una actualización,
+pero no forma parte del contrato ni del bootstrap actuales.
+
 ## Inventario de scripts SQL heredados
 
 Los archivos de `bd/` todavía no forman una secuencia ejecutable completa. Su clasificación actual es:

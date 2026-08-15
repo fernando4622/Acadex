@@ -27,6 +27,7 @@ async def comparativa_materias(
     rows = await conn.fetch(
         """WITH datos AS (
             SELECT
+                m.id AS materia_id,
                 m.clave,
                 m.nombre AS materia,
                 g.periodo_id,
@@ -36,15 +37,16 @@ async def comparativa_materias(
                 COUNT(rm.id) FILTER (WHERE rm.resultado_final < 70) AS reprobados,
                 COUNT(rm.id) AS con_resultado
             FROM academ.grupo g
-            JOIN academ.materia m ON m.id = g.materia_id
+            JOIN academ.plan_materia pm ON pm.id = g.plan_materia_id
+            JOIN academ.materia m ON m.id = pm.materia_id
             JOIN academ.periodo_academico p ON p.id = g.periodo_id
             JOIN academ.inscripcion i ON i.grupo_id = g.id AND i.estado = 'ACTIVA'
             LEFT JOIN academ.resultado_materia rm ON rm.inscripcion_id = i.id
             WHERE g.periodo_id IN ($1, $2)
-            GROUP BY m.id, m.nombre, g.periodo_id, p.codigo
+            GROUP BY m.id, m.clave, m.nombre, g.periodo_id, p.codigo
         )
         SELECT
-            a.id AS materia_id,
+            COALESCE(a.materia_id, b.materia_id) AS materia_id,
             COALESCE(a.materia, b.materia) AS materia,
             a.promedio AS promedio_a,
             b.promedio AS promedio_b,
@@ -117,7 +119,7 @@ async def mejores_alumnos(
 
     rows = await conn.fetch(
         f"""SELECT
-                a.matricula AS num_control,
+                a.no_control,
                 a.nombre || ' ' || a.apellido_pat || COALESCE(' ' || a.apellido_mat, '') AS alumno,
                 ROUND(AVG(rm.resultado_final)::NUMERIC, 2) AS promedio,
                 COUNT(rm.id) AS materias_cursadas,
@@ -126,7 +128,7 @@ async def mejores_alumnos(
             JOIN academ.inscripcion i ON i.alumno_id = a.id AND i.estado = 'ACTIVA'
             JOIN academ.grupo g ON g.id = i.grupo_id {where}
             JOIN academ.resultado_materia rm ON rm.inscripcion_id = i.id
-            GROUP BY a.id, a.matricula, a.nombre, a.apellido_pat, a.apellido_mat
+            GROUP BY a.id, a.no_control, a.nombre, a.apellido_pat, a.apellido_mat
             ORDER BY promedio DESC NULLS LAST
             LIMIT 100""",
         *params,
@@ -173,7 +175,8 @@ async def desercion(
                     ) / NULLIF(COUNT(DISTINCT i.id), 0), 1
                 ) AS tasa_desercion_pct
             FROM academ.grupo g
-            JOIN academ.materia m ON m.id = g.materia_id
+            JOIN academ.plan_materia pm ON pm.id = g.plan_materia_id
+            JOIN academ.materia m ON m.id = pm.materia_id
             JOIN academ.docente d ON d.id = g.docente_id
             JOIN academ.inscripcion i ON i.grupo_id = g.id AND i.estado = 'ACTIVA'
             WHERE g.periodo_id = $1
@@ -205,7 +208,8 @@ async def reprobacion_historica(
                 ROUND(AVG(rm.resultado_final)::NUMERIC, 2) AS promedio_historico,
                 COUNT(DISTINCT g.periodo_id) AS periodos_impartidos
             FROM academ.materia m
-            JOIN academ.grupo g ON g.materia_id = m.id
+            JOIN academ.plan_materia pm ON pm.materia_id = m.id
+            JOIN academ.grupo g ON g.plan_materia_id = pm.id
             JOIN academ.inscripcion i ON i.grupo_id = g.id AND i.estado = 'ACTIVA'
             JOIN academ.resultado_materia rm ON rm.inscripcion_id = i.id
             GROUP BY m.id, m.nombre

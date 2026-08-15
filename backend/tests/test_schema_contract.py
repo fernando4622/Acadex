@@ -159,7 +159,7 @@ class SchemaContractTests(unittest.TestCase):
         self.assertNotIn("plan_estudio", columnas_faltantes)
         self.assertNotIn("plan_materia", columnas_faltantes)
         self.assertNotIn("alumno", columnas_faltantes)
-        self.assertIn("plan_materia_id", columnas_faltantes["grupo"])
+        self.assertNotIn("grupo", columnas_faltantes)
         self.assertNotIn("periodo_academico", columnas_faltantes)
         self.assertIn("tipo_catalogo_id", columnas_faltantes["actividad"])
 
