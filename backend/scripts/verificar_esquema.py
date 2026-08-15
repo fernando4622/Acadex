@@ -22,6 +22,7 @@ TABLAS_REQUERIDAS = {
     "bonus_materia",
     "bonus_unidad",
     "carrera",
+    "control_secuencial",
     "docente",
     "grupo",
     "inscripcion",
@@ -90,6 +91,7 @@ COLUMNAS_REQUERIDAS = {
         "curp", "semestre_actual", "plan_estudio_id",
     },
     "carrera": {"id", "clave", "nombre", "descripcion", "activo", "created_at"},
+    "control_secuencial": {"anio", "ultimo_valor"},
     "grupo": {
         "id", "nombre", "plan_materia_id", "docente_id", "periodo_id",
         "calificacion_maxima", "estado", "letra_grupo", "created_at", "updated_at",

@@ -147,7 +147,7 @@ class SchemaContractTests(unittest.TestCase):
             faltantes,
             {
                 "tablas": [],
-                "rutinas": ["fn_generar_num_control", "sp_activar_periodo"],
+                "rutinas": [],
                 "vistas": [],
             },
         )

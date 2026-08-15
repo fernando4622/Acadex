@@ -74,6 +74,12 @@ conocidos sin regenerar identificadores y aborta si encuentra un tipo que no pue
 no forma parte del contrato ni de una instalación nueva. También incorpora las horas de materia, las
 fechas operativas de actividad y sus marcas automáticas de actualización.
 
+La migración `009_establecer_rutinas_nucleo.sql` incorpora el contador y la función vigentes para
+generar `no_control` con formato `YY02SSSS`. Al actualizar, recupera el mayor consecutivo de los
+controles compatibles y nunca reduce un contador existente. También establece la activación atómica
+de periodos: serializa solicitudes concurrentes, garantiza como máximo un periodo activo y conserva
+en auditoría el estado real que tenía el periodo antes de activarlo.
+
 ## Inventario de scripts SQL heredados
 
 Los archivos de `bd/` todavía no forman una secuencia ejecutable completa. Su clasificación actual es:

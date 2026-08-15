@@ -151,6 +151,31 @@ class MigrationDiscoveryTests(unittest.TestCase):
         self.assertNotIn("CREATE TYPE academ.tipo_actividad", bootstrap)
         self.assertNotIn("tipo           academ.tipo_actividad", bootstrap)
 
+    def test_core_routines_migration_preserves_current_control_sequence(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        migration = (
+            backend_root / "migrations" / "009_establecer_rutinas_nucleo.sql"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("CREATE TABLE IF NOT EXISTS academ.control_secuencial", migration)
+        self.assertIn("WHERE no_control ~ '^[0-9]{8}$'", migration)
+        self.assertIn("GREATEST(", migration)
+        self.assertIn("RIGHT(p_anio::TEXT, 2)", migration)
+        self.assertIn("ultimo_valor < 9999", migration)
+        self.assertNotIn("LPAD(p_anio::TEXT, 2", migration)
+
+    def test_period_activation_is_serialized_and_uniquely_constrained(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        migration = (
+            backend_root / "migrations" / "009_establecer_rutinas_nucleo.sql"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("CREATE UNIQUE INDEX IF NOT EXISTS uq_periodo_unico_activo", migration)
+        self.assertIn("pg_advisory_xact_lock", migration)
+        self.assertIn("FOR UPDATE", migration)
+        self.assertIn("jsonb_build_object('estado', v_estado_objetivo)", migration)
+        self.assertIn("IF NOT FOUND THEN", migration)
+
 
 if __name__ == "__main__":
     unittest.main()

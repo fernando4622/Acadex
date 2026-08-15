@@ -46,6 +46,10 @@ CREATE TABLE periodo_academico (
 COMMENT ON TABLE  periodo_academico        IS 'Periodos académicos (semestres, cuatrimestres, etc.)';
 COMMENT ON COLUMN periodo_academico.codigo IS 'Clave única del periodo, ej: 2024-1, 2024A';
 
+CREATE UNIQUE INDEX uq_periodo_unico_activo
+    ON periodo_academico (estado)
+    WHERE estado = 'activo';
+
 -- -------------------------------------
 -- A2. CARRERA Y PLAN DE ESTUDIO
 -- -------------------------------------
@@ -100,6 +104,15 @@ CREATE TABLE alumno (
 );
 
 COMMENT ON TABLE alumno IS 'Catálogo de alumnos de la institución';
+
+-- Contador atómico anual para generar no_control con formato YY02SSSS.
+CREATE TABLE control_secuencial (
+    anio         SMALLINT PRIMARY KEY,
+    ultimo_valor INT      NOT NULL DEFAULT 0,
+
+    CONSTRAINT chk_control_secuencial_valor
+        CHECK (ultimo_valor BETWEEN 0 AND 9999)
+);
 
 -- -------------------------------------
 -- A4. DOCENTE
@@ -537,6 +550,43 @@ BEGIN
         (p_tabla, p_registro_id, p_operacion, p_anterior, p_nuevo, p_usuario_app, p_motivo);
 END;
 $$;
+
+-- -----------------------------------------------------------------------------
+-- F02: Generar no_control institucional sin condiciones de carrera
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION academ.fn_generar_num_control(p_anio SMALLINT)
+RETURNS VARCHAR
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_siguiente INT;
+BEGIN
+    IF p_anio NOT BETWEEN 2000 AND 2099 THEN
+        RAISE EXCEPTION 'Año no válido para número de control: %', p_anio
+            USING ERRCODE = '22023';
+    END IF;
+
+    INSERT INTO academ.control_secuencial (anio, ultimo_valor)
+    VALUES (p_anio, 0)
+    ON CONFLICT (anio) DO NOTHING;
+
+    UPDATE academ.control_secuencial
+    SET ultimo_valor = ultimo_valor + 1
+    WHERE anio = p_anio
+      AND ultimo_valor < 9999
+    RETURNING ultimo_valor INTO v_siguiente;
+
+    IF v_siguiente IS NULL THEN
+        RAISE EXCEPTION 'Se agotaron los números de control para el año %', p_anio
+            USING ERRCODE = '22003';
+    END IF;
+
+    RETURN RIGHT(p_anio::TEXT, 2) || '02' || LPAD(v_siguiente::TEXT, 4, '0');
+END;
+$$;
+
+COMMENT ON FUNCTION academ.fn_generar_num_control(SMALLINT) IS
+    'Genera un no_control atómico con formato YY02SSSS para el año indicado.';
 
 -- -----------------------------------------------------------------------------
 -- F02: Calcular suma de ponderaciones activas de una unidad
@@ -1290,6 +1340,72 @@ $$;
 -- =============================================================================
 -- SECCIÓN L: PROCEDIMIENTOS ALMACENADOS (OPERACIONES PRINCIPALES)
 -- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- SP00: Activar un periodo y cerrar de forma atómica el anterior
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE academ.sp_activar_periodo(
+    p_periodo_id INT,
+    p_usuario_id UUID
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_estado_objetivo VARCHAR(20);
+    v_activo_previo   INT;
+BEGIN
+    PERFORM pg_advisory_xact_lock(hashtext('acadex:activar_periodo'));
+
+    SELECT estado
+    INTO v_estado_objetivo
+    FROM academ.periodo_academico
+    WHERE id = p_periodo_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Periodo % no encontrado', p_periodo_id
+            USING ERRCODE = 'P0002';
+    END IF;
+
+    IF v_estado_objetivo = 'activo' THEN
+        RETURN;
+    END IF;
+
+    SELECT id
+    INTO v_activo_previo
+    FROM academ.periodo_academico
+    WHERE estado = 'activo'
+      AND id <> p_periodo_id
+    FOR UPDATE;
+
+    IF v_activo_previo IS NOT NULL THEN
+        UPDATE academ.periodo_academico
+        SET estado = 'cerrado', updated_at = NOW()
+        WHERE id = v_activo_previo;
+
+        PERFORM academ.fn_log_auditoria(
+            'periodo_academico', v_activo_previo::TEXT, 'UPDATE',
+            jsonb_build_object('estado', 'activo'),
+            jsonb_build_object(
+                'estado', 'cerrado',
+                'cerrado_por_activacion', p_periodo_id
+            ),
+            p_usuario_id, 'Cierre automático al activar nuevo periodo'
+        );
+    END IF;
+
+    UPDATE academ.periodo_academico
+    SET estado = 'activo', updated_at = NOW()
+    WHERE id = p_periodo_id;
+
+    PERFORM academ.fn_log_auditoria(
+        'periodo_academico', p_periodo_id::TEXT, 'UPDATE',
+        jsonb_build_object('estado', v_estado_objetivo),
+        jsonb_build_object('estado', 'activo'),
+        p_usuario_id, 'Periodo activado manualmente'
+    );
+END;
+$$;
 
 -- -----------------------------------------------------------------------------
 -- SP01: Cerrar una unidad
