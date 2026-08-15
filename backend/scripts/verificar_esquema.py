@@ -82,7 +82,7 @@ VISTAS_REQUERIDAS = {
 COLUMNAS_REQUERIDAS = {
     "actividad": {
         "id", "unidad_id", "tipo_catalogo_id", "descripcion", "ponderacion",
-        "activa", "created_at", "updated_at",
+        "fecha_apertura", "fecha_cierre", "activa", "created_at", "updated_at",
     },
     "alumno": {
         "id", "no_control", "nombre", "apellido_pat", "apellido_mat", "email",

@@ -25,9 +25,6 @@ SET search_path = academ, public;
 -- SECCIÓN A: TABLAS DE CATÁLOGOS
 -- =============================================================================
 
-CREATE TYPE academ.tipo_actividad AS ENUM ('EXAMEN', 'TAREA', 'PROYECTO', 'PRACTICA_LAB', 'FORO', 'PARTICIPACION', 'ASISTENCIA');
-
-
 -- -------------------------------------
 -- A1. PERIODO ACADÉMICO
 -- -------------------------------------
@@ -132,12 +129,15 @@ COMMENT ON TABLE docente IS 'Catálogo de docentes de la institución';
 -- A5. MATERIA
 -- -------------------------------------
 CREATE TABLE materia (
-    id         SERIAL       PRIMARY KEY,
-    clave      VARCHAR(8)  NOT NULL,
-    nombre     VARCHAR(200) NOT NULL,
-    creditos   SMALLINT     CHECK (creditos > 0),
-    activa     BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    id             SERIAL       PRIMARY KEY,
+    clave          VARCHAR(8)   NOT NULL,
+    nombre         VARCHAR(200) NOT NULL,
+    creditos       SMALLINT     CHECK (creditos > 0),
+    horas_teoria   INT          DEFAULT 0,
+    horas_practica INT          DEFAULT 0,
+    activa         BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_materia_clave UNIQUE (clave)
 );
@@ -249,27 +249,58 @@ COMMENT ON TABLE academ.unidad_plantilla IS
 CREATE INDEX IF NOT EXISTS idx_unidad_plantilla_materia ON academ.unidad_plantilla(materia_id);
 
 -- -------------------------------------
--- B3. ACTIVIDAD
+-- B3. TIPO DE ACTIVIDAD
+-- Catálogo extensible utilizado por las actividades evaluables.
+-- -------------------------------------
+CREATE TABLE tipo_actividad_catalogo (
+    id                          SERIAL       PRIMARY KEY,
+    nombre                      VARCHAR(100) NOT NULL,
+    descripcion                 TEXT,
+    valor_ponderacion_sugerido  NUMERIC(5,2),
+    activo                      BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at                  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at                  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_tipo_actividad_nombre UNIQUE (nombre)
+);
+
+INSERT INTO tipo_actividad_catalogo
+    (nombre, descripcion, valor_ponderacion_sugerido)
+VALUES
+    ('Examen',        'Evaluación escrita individual',          40.0),
+    ('Práctica',      'Práctica de laboratorio o taller',       20.0),
+    ('Proyecto',      'Proyecto integrador o de investigación', 30.0),
+    ('Tarea',         'Tarea o actividad extraclase',           10.0),
+    ('Exposición',    'Presentación oral o demostración',        20.0),
+    ('Participación', 'Participación durante la unidad',         10.0),
+    ('Investigación', 'Trabajo de investigación',                20.0),
+    ('Foro',          'Discusión académica guiada',              10.0),
+    ('Asistencia',    'Registro de asistencia',                  10.0);
+
+-- -------------------------------------
+-- B4. ACTIVIDAD
 -- Existe SOLO en el contexto de una unidad de un grupo.
 -- La ponderación pertenece a la actividad (que ya es contextual).
 -- -------------------------------------
 CREATE TABLE actividad (
-    id             SERIAL                 PRIMARY KEY,
-    unidad_id      INT                    NOT NULL REFERENCES unidad(id),
-    tipo           academ.tipo_actividad  NOT NULL,
+    id               SERIAL        PRIMARY KEY,
+    unidad_id        INT           NOT NULL REFERENCES unidad(id),
+    tipo_catalogo_id INT           REFERENCES tipo_actividad_catalogo(id) ON DELETE RESTRICT,
     descripcion    VARCHAR(200),
     ponderacion    NUMERIC(6,3)           NOT NULL,   -- 0.001 a 100.000
-    orden          SMALLINT               NOT NULL DEFAULT 1,
     fecha_apertura TIMESTAMPTZ,
     fecha_cierre   TIMESTAMPTZ,
     activa         BOOLEAN                NOT NULL DEFAULT TRUE,
     created_at     TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
 
     CONSTRAINT chk_actividad_ponderacion CHECK (ponderacion > 0 AND ponderacion <= 100)
 );
 
 -- Unicidad de tipo por unidad (solo para activas)
-CREATE UNIQUE INDEX uq_actividad_unidad_tipo ON actividad (unidad_id, tipo) WHERE activa = TRUE;
+CREATE UNIQUE INDEX uq_actividad_unidad_tipo_catalogo
+    ON actividad (unidad_id, tipo_catalogo_id)
+    WHERE activa = TRUE AND tipo_catalogo_id IS NOT NULL;
 
 COMMENT ON TABLE  actividad             IS 'Actividades evaluables. Solo existen dentro del contexto unidad→grupo.';
 COMMENT ON COLUMN actividad.ponderacion IS 'Porcentaje que representa esta actividad en la unidad (0 < p <= 100)';
@@ -806,7 +837,7 @@ $$;
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- TG01: updated_at automático en alumno, docente y grupo
+-- TG01: updated_at automático en tablas vigentes
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION academ.fn_tg_updated_at()
 RETURNS TRIGGER
@@ -832,6 +863,18 @@ CREATE TRIGGER tg_grupo_updated_at
 
 CREATE TRIGGER tg_periodo_updated_at
     BEFORE UPDATE ON academ.periodo_academico
+    FOR EACH ROW EXECUTE FUNCTION academ.fn_tg_updated_at();
+
+CREATE TRIGGER tg_materia_updated_at
+    BEFORE UPDATE ON academ.materia
+    FOR EACH ROW EXECUTE FUNCTION academ.fn_tg_updated_at();
+
+CREATE TRIGGER tg_actividad_updated_at
+    BEFORE UPDATE ON academ.actividad
+    FOR EACH ROW EXECUTE FUNCTION academ.fn_tg_updated_at();
+
+CREATE TRIGGER tg_tipo_actividad_updated_at
+    BEFORE UPDATE ON academ.tipo_actividad_catalogo
     FOR EACH ROW EXECUTE FUNCTION academ.fn_tg_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -2927,27 +2970,27 @@ INSERT INTO academ.unidad (grupo_id, numero, nombre) VALUES (v_bd_b_id, 3, 'Dise
 
 -- ─── BLOQUE 6: Actividades POO-A ─────────────────────────────────────────────
 
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u1, 'EXAMEN',   50, 1) RETURNING id INTO v_a_poo_a_u1_examen;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u1, 'PRACTICA_LAB', 35, 2) RETURNING id INTO v_a_poo_a_u1_practica;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u1, 'TAREA', 15, 3) RETURNING id INTO v_a_poo_a_u1_tarea;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u1, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Examen'), 50) RETURNING id INTO v_a_poo_a_u1_examen;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u1, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Práctica'), 35) RETURNING id INTO v_a_poo_a_u1_practica;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u1, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Tarea'), 15) RETURNING id INTO v_a_poo_a_u1_tarea;
 
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u2, 'EXAMEN',   60, 1) RETURNING id INTO v_a_poo_a_u2_examen;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u2, 'PROYECTO', 40, 2) RETURNING id INTO v_a_poo_a_u2_proyecto;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u2, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Examen'), 60) RETURNING id INTO v_a_poo_a_u2_examen;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u2, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Proyecto'), 40) RETURNING id INTO v_a_poo_a_u2_proyecto;
 
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u3, 'PROYECTO', 70, 1) RETURNING id INTO v_a_poo_a_u3_proyecto;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u3, 'PARTICIPACION', 30, 2) RETURNING id INTO v_a_poo_a_u3_present;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u3, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Proyecto'), 70) RETURNING id INTO v_a_poo_a_u3_proyecto;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u3, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Participación'), 30) RETURNING id INTO v_a_poo_a_u3_present;
 
 -- ─── BLOQUE 7: Actividades POO-B (Estandarizadas: un tipo por unidad) ──────────
 -- U1: Se unifican tareas (30+30+30) en una sola de 90%
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_b_u1, 'TAREA',         90, 1) RETURNING id INTO v_a_poo_b_u1_t1;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_b_u1, 'PARTICIPACION', 10, 2) RETURNING id INTO v_a_poo_b_u1_part;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u1, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Tarea'), 90) RETURNING id INTO v_a_poo_b_u1_t1;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u1, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Participación'), 10) RETURNING id INTO v_a_poo_b_u1_part;
 
 -- U2: Se unifican exámenes (40+25) en uno de 65%
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_b_u2, 'EXAMEN', 65, 1) RETURNING id INTO v_a_poo_b_u2_examen;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_b_u2, 'TAREA',  35, 2) RETURNING id INTO v_a_poo_b_u2_mapa;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u2, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Examen'), 65) RETURNING id INTO v_a_poo_b_u2_examen;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u2, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Tarea'), 35) RETURNING id INTO v_a_poo_b_u2_mapa;
 
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_b_u3, 'PROYECTO', 60, 1) RETURNING id INTO v_a_poo_b_u3_proyecto;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_b_u3, 'PARTICIPACION', 40, 2) RETURNING id INTO v_a_poo_b_u3_defensa;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u3, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Proyecto'), 60) RETURNING id INTO v_a_poo_b_u3_proyecto;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u3, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Participación'), 40) RETURNING id INTO v_a_poo_b_u3_defensa;
 
 -- Verificar ponderaciones
 PERFORM 1 FROM academ.v_suma_ponderaciones
@@ -3084,12 +3127,13 @@ FROM academ.v_resultados_finales
 WHERE grupo = 'POO-A' ORDER BY alumno;
 
 SELECT '=== Q3: HETEROGENEIDAD POO-A vs POO-B ===' AS info;
-SELECT g.nombre AS grupo, u.numero, a.orden, a.tipo::TEXT AS actividad, a.ponderacion
+SELECT g.nombre AS grupo, u.numero, c.nombre AS actividad, a.ponderacion
 FROM academ.actividad a
 JOIN academ.unidad u ON u.id = a.unidad_id
 JOIN academ.grupo  g ON g.id = u.grupo_id
+LEFT JOIN academ.tipo_actividad_catalogo c ON c.id = a.tipo_catalogo_id
 WHERE g.nombre IN ('POO-A','POO-B') AND a.activa = TRUE
-ORDER BY g.nombre, u.numero, a.orden;
+ORDER BY g.nombre, u.numero, a.id;
 
 SELECT '=== Q4: IMPACTO BONUS — Hernández U1 ===' AS info;
 SELECT al.nombre || ' ' || al.apellido_pat AS alumno,
@@ -3123,7 +3167,8 @@ BEGIN
     SELECT a.id INTO v_act FROM academ.actividad a
     JOIN academ.unidad u ON u.id=a.unidad_id
     JOIN academ.grupo  g ON g.id=u.grupo_id
-    WHERE g.nombre='POO-A' AND u.numero=1 AND a.tipo='EXAMEN';
+    JOIN academ.tipo_actividad_catalogo c ON c.id=a.tipo_catalogo_id
+    WHERE g.nombre='POO-A' AND u.numero=1 AND c.nombre='Examen';
 
     SELECT id INTO v_doc FROM academ.docente WHERE num_empleado='D001';
 

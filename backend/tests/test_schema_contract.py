@@ -146,7 +146,7 @@ class SchemaContractTests(unittest.TestCase):
         self.assertEqual(
             faltantes,
             {
-                "tablas": ["tipo_actividad_catalogo"],
+                "tablas": [],
                 "rutinas": ["fn_generar_num_control", "sp_activar_periodo"],
                 "vistas": [],
             },
@@ -155,13 +155,7 @@ class SchemaContractTests(unittest.TestCase):
         columnas_faltantes = detectar_columnas_faltantes(
             leer_estado_fuentes_sql(fuentes)
         )
-        self.assertNotIn("carrera", columnas_faltantes)
-        self.assertNotIn("plan_estudio", columnas_faltantes)
-        self.assertNotIn("plan_materia", columnas_faltantes)
-        self.assertNotIn("alumno", columnas_faltantes)
-        self.assertNotIn("grupo", columnas_faltantes)
-        self.assertNotIn("periodo_academico", columnas_faltantes)
-        self.assertIn("tipo_catalogo_id", columnas_faltantes["actividad"])
+        self.assertEqual(columnas_faltantes, {})
 
 
 if __name__ == "__main__":

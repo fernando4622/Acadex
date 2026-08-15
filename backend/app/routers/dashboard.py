@@ -274,19 +274,17 @@ async def get_detailed_report(
     return [dict(r) for r in rows]
 
 
-# ENDPOINT EXTRA: Tipos de actividad disponibles (ENUM)
+# ENDPOINT EXTRA: Tipos de actividad disponibles
 @router.get("/tipos-actividad")
 async def tipos_actividad(
     conn: Connection = Depends(get_conn),
     _: dict = Depends(get_current_user),
 ):
-    """Devuelve los valores válidos del ENUM tipo_actividad para poblar dropdowns."""
+    """Devuelve los nombres activos del catálogo vigente para poblar dropdowns."""
     rows = await conn.fetch("""
-        SELECT e.enumlabel AS tipo
-        FROM pg_enum e
-        JOIN pg_type t ON e.enumtypid = t.oid
-        JOIN pg_namespace n ON t.typnamespace = n.oid
-        WHERE n.nspname = 'academ' AND t.typname = 'tipo_actividad'
-        ORDER BY e.enumsortorder
+        SELECT nombre AS tipo
+        FROM academ.tipo_actividad_catalogo
+        WHERE activo = TRUE
+        ORDER BY nombre
     """)
     return [r["tipo"] for r in rows]

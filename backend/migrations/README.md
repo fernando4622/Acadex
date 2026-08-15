@@ -67,6 +67,13 @@ Solo convierte automáticamente un grupo histórico cuando su materia aparece ex
 se resuelva explícitamente. La columna histórica puede conservarse temporalmente en una actualización,
 pero no forma parte del contrato ni del bootstrap actuales.
 
+La migración `008_alinear_materias_actividades.sql` reemplaza el `ENUM` histórico de actividades por
+`tipo_actividad_catalogo`, que es el modelo extensible consumido por el backend. Convierte los valores
+conocidos sin regenerar identificadores y aborta si encuentra un tipo que no puede mapear. La columna
+`tipo` se conserva temporalmente, permitiendo valores nulos, para facilitar verificación y recuperación;
+no forma parte del contrato ni de una instalación nueva. También incorpora las horas de materia, las
+fechas operativas de actividad y sus marcas automáticas de actualización.
+
 ## Inventario de scripts SQL heredados
 
 Los archivos de `bd/` todavía no forman una secuencia ejecutable completa. Su clasificación actual es:

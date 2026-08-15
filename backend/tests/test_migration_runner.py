@@ -117,6 +117,40 @@ class MigrationDiscoveryTests(unittest.TestCase):
             self.assertNotIn("g.materia_id", content, source)
             self.assertNotIn("a.matricula", content, source)
 
+    def test_activity_migration_maps_legacy_enum_without_discarding_it(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        migration = (
+            backend_root / "migrations" / "008_alinear_materias_actividades.sql"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("CREATE TABLE IF NOT EXISTS academ.tipo_actividad_catalogo", migration)
+        self.assertIn("ADD COLUMN IF NOT EXISTS tipo_catalogo_id", migration)
+        self.assertIn("ADD COLUMN IF NOT EXISTS fecha_apertura", migration)
+        self.assertIn("ADD COLUMN IF NOT EXISTS fecha_cierre", migration)
+        self.assertIn("CASE a.tipo::TEXT", migration)
+        self.assertIn("WHEN 'PRACTICA_LAB' THEN 'Práctica'", migration)
+        self.assertIn("ALTER COLUMN tipo DROP NOT NULL", migration)
+        self.assertNotIn("DROP COLUMN tipo", migration)
+
+    def test_supported_activity_catalog_query_does_not_depend_on_legacy_enum(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        dashboard = (
+            backend_root / "app" / "routers" / "dashboard.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("FROM academ.tipo_actividad_catalogo", dashboard)
+        self.assertNotIn("FROM pg_enum", dashboard)
+        self.assertNotIn("t.typname = 'tipo_actividad'", dashboard)
+
+    def test_current_bootstrap_uses_activity_catalog_instead_of_legacy_enum(self):
+        project_root = Path(__file__).resolve().parents[2]
+        bootstrap = (project_root / "bd" / "database.sql").read_text(encoding="utf-8")
+
+        self.assertIn("CREATE TABLE tipo_actividad_catalogo", bootstrap)
+        self.assertIn("tipo_catalogo_id INT", bootstrap)
+        self.assertNotIn("CREATE TYPE academ.tipo_actividad", bootstrap)
+        self.assertNotIn("tipo           academ.tipo_actividad", bootstrap)
+
 
 if __name__ == "__main__":
     unittest.main()
