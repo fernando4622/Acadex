@@ -304,6 +304,7 @@ CREATE TABLE actividad (
     fecha_apertura TIMESTAMPTZ,
     fecha_cierre   TIMESTAMPTZ,
     activa         BOOLEAN                NOT NULL DEFAULT TRUE,
+    publicada      BOOLEAN                NOT NULL DEFAULT FALSE,
     created_at     TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
 
@@ -2122,6 +2123,7 @@ LEFT JOIN academ.tipo_actividad_catalogo c ON a.tipo_catalogo_id = c.id
 LEFT JOIN academ.resultado_actividad ra
        ON ra.inscripcion_id = i.id AND ra.actividad_id = a.id
 WHERE i.estado = 'ACTIVA'
+  AND a.publicada = TRUE
 ORDER BY u.numero, a.ponderacion DESC;
 
 COMMENT ON VIEW academ.v_actividades_alumno IS
@@ -3126,6 +3128,13 @@ INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (
 
 INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u3, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Proyecto'), 60) RETURNING id INTO v_a_poo_b_u3_proyecto;
 INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u3, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Participación'), 40) RETURNING id INTO v_a_poo_b_u3_defensa;
+
+-- El conjunto demo representa actividades que ya eran visibles antes del contrato de borradores.
+UPDATE academ.actividad a
+SET publicada = TRUE
+FROM academ.unidad u
+WHERE u.id = a.unidad_id
+  AND u.grupo_id IN (v_poo_a_id, v_poo_b_id);
 
 -- Verificar ponderaciones
 PERFORM 1 FROM academ.v_suma_ponderaciones

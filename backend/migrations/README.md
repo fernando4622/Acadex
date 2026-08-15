@@ -80,6 +80,11 @@ controles compatibles y nunca reduce un contador existente. También establece l
 de periodos: serializa solicitudes concurrentes, garantiza como máximo un periodo activo y conserva
 en auditoría el estado real que tenía el periodo antes de activarlo.
 
+La migración `010_publicar_actividades.sql` formaliza el estado de borrador/publicación. Para
+preservar el comportamiento observable, las actividades existentes se consideran publicadas durante
+la actualización; las nuevas comienzan con `publicada = FALSE` hasta que el docente las publique.
+La vista del alumno expone el nombre vigente del catálogo como `tipo_nombre` y omite borradores.
+
 ## Inventario de scripts SQL heredados
 
 Los archivos de `bd/` todavía no forman una secuencia ejecutable completa. Su clasificación actual es:

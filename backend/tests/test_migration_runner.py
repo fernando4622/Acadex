@@ -176,6 +176,33 @@ class MigrationDiscoveryTests(unittest.TestCase):
         self.assertIn("jsonb_build_object('estado', v_estado_objetivo)", migration)
         self.assertIn("IF NOT FOUND THEN", migration)
 
+    def test_activity_publication_preserves_existing_student_visibility(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        migration = (
+            backend_root / "migrations" / "010_publicar_actividades.sql"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("ADD COLUMN IF NOT EXISTS publicada BOOLEAN", migration)
+        self.assertIn("SET publicada = TRUE", migration)
+        self.assertIn("WHERE publicada IS NULL", migration)
+        self.assertIn("ALTER COLUMN publicada SET DEFAULT FALSE", migration)
+        self.assertIn("AND a.publicada = TRUE", migration)
+        self.assertIn("c.nombre AS tipo_nombre", migration)
+
+    def test_supported_student_activity_flow_uses_current_type_name(self):
+        project_root = Path(__file__).resolve().parents[2]
+        backend = (
+            project_root / "backend" / "app" / "routers" / "actividades.py"
+        ).read_text(encoding="utf-8")
+        frontend = (
+            project_root / "frontend" / "src" / "pages" / "MisGrupoDetalle.jsx"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("tipo_nombre", backend)
+        self.assertIn("tipo_nombre", frontend)
+        self.assertNotIn("tipo_actividad,", backend)
+        self.assertNotIn(".tipo_actividad", frontend)
+
 
 if __name__ == "__main__":
     unittest.main()

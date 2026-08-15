@@ -22,7 +22,7 @@ async def listar_actividades(
     try:
         rows = await conn.fetch(
             """SELECT a.id, a.unidad_id, a.tipo_catalogo_id, c.nombre AS tipo_nombre, a.descripcion, a.ponderacion,
-                      a.activa
+                      a.activa, a.publicada
                FROM academ.actividad a
                LEFT JOIN academ.tipo_actividad_catalogo c ON a.tipo_catalogo_id = c.id
                WHERE a.unidad_id=$1 AND a.activa=TRUE
@@ -66,7 +66,7 @@ async def crear_actividad(
             """INSERT INTO academ.actividad
                    (unidad_id, tipo_catalogo_id, descripcion, ponderacion)
                VALUES ($1, $2, $3, $4)
-               RETURNING id, unidad_id, tipo_catalogo_id, descripcion, ponderacion, activa""",
+               RETURNING id, unidad_id, tipo_catalogo_id, descripcion, ponderacion, activa, publicada""",
             unidad_id, body.tipo_catalogo_id, body.descripcion, body.ponderacion,
         )
 
@@ -111,7 +111,7 @@ async def actualizar_actividad(
                    descripcion    = COALESCE($3, descripcion),
                    ponderacion    = COALESCE($4, ponderacion)
                WHERE id = $1
-               RETURNING id, unidad_id, tipo_catalogo_id, descripcion, ponderacion""",
+               RETURNING id, unidad_id, tipo_catalogo_id, descripcion, ponderacion, activa, publicada""",
             actividad_id,
             body.tipo_catalogo_id,
             body.descripcion,
@@ -166,8 +166,9 @@ async def mis_actividades(
             raise HTTPException(403, detail={"codigo": "SIN_PERMISO",
                                              "mensaje": "Solo puedes ver tus propias actividades."})
     rows = await conn.fetch(
-        """SELECT actividad_id, tipo_actividad, descripcion, ponderacion,
+        """SELECT actividad_id, tipo_nombre, descripcion, ponderacion,
                   unidad_id, unidad_numero, unidad_nombre, unidad_estado,
+                  fecha_apertura, fecha_cierre, visible, estatus_plazo,
                   calificacion, estado_entrega, fecha_registro, fecha_modificacion
            FROM academ.v_actividades_alumno
            WHERE inscripcion_id=$1::UUID

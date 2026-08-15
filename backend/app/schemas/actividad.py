@@ -34,3 +34,4 @@ class ActividadResponse(BaseModel):
     descripcion:    Optional[str] = None
     ponderacion:    float
     activa:         bool
+    publicada:      bool = False
