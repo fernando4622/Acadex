@@ -40,6 +40,18 @@ def generar_password_alumno(fecha_nac) -> str:
     return fecha_nac.strftime("%Y%m%d")
 
 
+def parsear_fecha_nacimiento(valor: str):
+    """Convierte los formatos CSV admitidos a una fecha o devuelve None."""
+    if not valor:
+        return None
+    for formato in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(valor, formato).date()
+        except ValueError:
+            continue
+    return None
+
+
 def _parse_csv(content: bytes) -> list[dict]:
     """Decodifica el CSV y devuelve lista de dicts. Acepta UTF-8 y latin-1."""
     try:
@@ -104,15 +116,8 @@ async def preview_alumnos(
         # Generar email/nip para preview
         email_preview = fila.get("email") or (generar_email_alumno(matricula) if matricula else None)
         
-        # Parsear fecha para NIP
-        nip_preview = None
-        if fecha_nac_str:
-            for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
-                try:
-                    fecha_nac = datetime.strptime(fecha_nac_str, fmt).date()
-                    nip_preview = generar_password_alumno(fecha_nac)
-                    break
-                except ValueError: continue
+        fecha_nac = parsear_fecha_nacimiento(fecha_nac_str)
+        nip_preview = generar_password_alumno(fecha_nac) if fecha_nac else None
 
         # Revisar si existe por CURP (Sincronización con el fix de duplicados)
         ya_existe = False
@@ -127,6 +132,8 @@ async def preview_alumnos(
         if not matricula: error = "Matrícula/No. Control es obligatorio"
         elif not nombre: error = "Nombre es obligatorio"
         elif not ap_pat: error = "Apellido Paterno es obligatorio"
+        elif not fecha_nac_str: error = "Fecha de nacimiento es obligatoria para generar el NIP provisional"
+        elif not fecha_nac: error = "Fecha de nacimiento inválida"
         elif matricula in matriculas_existentes: error = f"Matrícula {matricula} ya existe"
         elif matricula in matriculas_csv: error = f"Matrícula {matricula} duplicada en CSV"
         elif email_preview and email_preview in emails_existentes: error = f"Email {email_preview} ya está en uso"
@@ -194,14 +201,13 @@ async def confirmar_importar_alumnos(
             continue
 
         try:
-            # Parsear fecha
-            fecha_nac = None
-            if fecha_nac_str:
-                for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
-                    try:
-                        fecha_nac = datetime.strptime(fecha_nac_str, fmt).date()
-                        break
-                    except ValueError: continue
+            fecha_nac = parsear_fecha_nacimiento(fecha_nac_str)
+            if not fecha_nac:
+                errores.append({
+                    "fila": i,
+                    "error": "Fecha de nacimiento obligatoria o inválida; no se generaron credenciales",
+                })
+                continue
 
             # Generación de credenciales
             email_inst = fila.get("email") or generar_email_alumno(matricula)
@@ -210,7 +216,7 @@ async def confirmar_importar_alumnos(
                 errores.append({"fila": i, "error": f"Email {email_inst} ya está en uso (Omitido)"})
                 continue
 
-            pw_texto = generar_password_alumno(fecha_nac) if fecha_nac else "Tec2026!"
+            pw_texto = generar_password_alumno(fecha_nac)
             pw_hashed = hash_password(pw_texto)
 
             # Revisar si existe por CURP (Fix para evitar errores de unicidad)
@@ -287,6 +293,8 @@ async def preview_docentes(
         if not num_empleado: error = "Num. Empleado es obligatorio"
         elif not nombre: error = "Nombre es obligatorio"
         elif not ap_pat: error = "Apellido Paterno es obligatorio"
+        elif not fecha: error = "Fecha de nacimiento es obligatoria para generar el NIP provisional"
+        elif not parsear_fecha_nacimiento(fecha): error = "Fecha de nacimiento inválida"
         elif num_empleado in empleados_existentes: 
             error = f"Num. Empleado {num_empleado} ya existe"
             ya_existe = True
@@ -342,13 +350,13 @@ async def confirmar_importar_docentes(
             continue
 
         try:
-            fecha_nac = None
-            if fecha_nac_str:
-                for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
-                    try:
-                        fecha_nac = datetime.strptime(fecha_nac_str, fmt).date()
-                        break
-                    except ValueError: continue
+            fecha_nac = parsear_fecha_nacimiento(fecha_nac_str)
+            if not fecha_nac:
+                errores.append({
+                    "fila": i,
+                    "error": "Fecha de nacimiento obligatoria o inválida; no se generaron credenciales",
+                })
+                continue
 
             email_inst = fila.get("email") or generar_email_docente(nombre, ap_pat, ap_mat)
             
@@ -356,8 +364,7 @@ async def confirmar_importar_docentes(
                 errores.append({"fila": i, "error": f"Email {email_inst} ya registrado (Omitido)"})
                 continue
 
-            # NIP provisional (YYYYMMDD si hay fecha, si no Tec2026!)
-            pw_texto = fecha_nac.strftime("%Y%m%d") if fecha_nac else "Tec2026!"
+            pw_texto = generar_password_alumno(fecha_nac)
             pw_hashed = hash_password(pw_texto)
 
             async with conn.transaction():

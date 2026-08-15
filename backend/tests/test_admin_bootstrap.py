@@ -48,6 +48,15 @@ class BootstrapSeedTests(unittest.TestCase):
         self.assertIn("MD5(password_hash)", migration)
         self.assertIn("activo = FALSE", migration)
 
+    def test_bulk_imports_do_not_fall_back_to_a_shared_password(self):
+        importer = (
+            BACKEND_ROOT / "app" / "routers" / "importacion.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("Tec2026!", importer)
+        self.assertIn("Fecha de nacimiento obligatoria o inválida", importer)
+        self.assertIn("pw_texto = generar_password_alumno(fecha_nac)", importer)
+
 
 if __name__ == "__main__":
     unittest.main()
