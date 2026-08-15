@@ -71,7 +71,7 @@ async def preview_alumnos(
     filas = _parse_csv(await archivo.read())
     results = []
 
-    matriculas_existentes = {r["matricula"] for r in await conn.fetch("SELECT matricula FROM academ.alumno")}
+    matriculas_existentes = {r["no_control"] for r in await conn.fetch("SELECT no_control FROM academ.alumno")}
     emails_existentes = {r["email"] for r in await conn.fetch("SELECT email FROM academ.usuario")}
     matriculas_csv = set()
     emails_csv = set()
@@ -80,7 +80,7 @@ async def preview_alumnos(
     from datetime import datetime
     año = datetime.now().year % 100
     ultimo_val = await conn.fetchval(
-        "SELECT MAX(CAST(matricula AS BIGINT)) FROM academ.alumno WHERE matricula ~ '^[0-9]+$' AND matricula LIKE $1",
+        "SELECT MAX(CAST(no_control AS BIGINT)) FROM academ.alumno WHERE no_control ~ '^[0-9]+$' AND no_control LIKE $1",
         f"{año}%"
     )
     if ultimo_val:
@@ -158,13 +158,13 @@ async def confirmar_importar_alumnos(
     errores = []
 
     # Obtener existentes para saltar
-    matriculas_existentes = {r["matricula"] for r in await conn.fetch("SELECT matricula FROM academ.alumno")}
+    matriculas_existentes = {r["no_control"] for r in await conn.fetch("SELECT no_control FROM academ.alumno")}
     emails_existentes = {r["email"] for r in await conn.fetch("SELECT email FROM academ.usuario")}
 
     # Preparar secuencia para matrículas auto-generadas
     año = datetime.now().year % 100
     ultimo_val = await conn.fetchval(
-        "SELECT MAX(CAST(matricula AS BIGINT)) FROM academ.alumno WHERE matricula ~ '^[0-9]+$' AND matricula LIKE $1",
+        "SELECT MAX(CAST(no_control AS BIGINT)) FROM academ.alumno WHERE no_control ~ '^[0-9]+$' AND no_control LIKE $1",
         f"{año}%"
     )
     if ultimo_val:
@@ -236,9 +236,9 @@ async def confirmar_importar_alumnos(
                 # 3. Alumno
                 await conn.execute(
                     """
-                    INSERT INTO academ.alumno (matricula, nombre, apellido_pat, apellido_mat, fecha_nacimiento, email, curp, plan_estudio_id, usuario_id)
+                    INSERT INTO academ.alumno (no_control, nombre, apellido_pat, apellido_mat, fecha_nacimiento, email, curp, plan_estudio_id, usuario_id)
                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-                    ON CONFLICT (matricula) DO UPDATE SET 
+                    ON CONFLICT (no_control) DO UPDATE SET
                         nombre=EXCLUDED.nombre, apellido_pat=EXCLUDED.apellido_pat, 
                         apellido_mat=EXCLUDED.apellido_mat, fecha_nacimiento=EXCLUDED.fecha_nacimiento, 
                         email=EXCLUDED.email, curp=EXCLUDED.curp, plan_estudio_id=EXCLUDED.plan_estudio_id, usuario_id=EXCLUDED.usuario_id
@@ -582,7 +582,7 @@ async def preview_inscripciones(
         if not mat or not grp:
             r["error"] = "Campos faltantes"; results.append(r); continue
         try:
-            alu = await conn.fetchrow("SELECT id FROM academ.alumno WHERE matricula=$1", mat)
+            alu = await conn.fetchrow("SELECT id FROM academ.alumno WHERE no_control=$1", mat)
             if not alu: raise ValueError(f"Alumno {mat} no existe")
             grupo = await conn.fetchrow("SELECT id FROM academ.grupo WHERE nombre=$1", grp)
             if not grupo: raise ValueError(f"Grupo {grp} no existe")
@@ -608,7 +608,7 @@ async def importar_inscripciones(
         if not mat or not grp:
             errores.append({"fila": i, "error": "Campos faltantes"}); continue
         try:
-            alu = await conn.fetchrow("SELECT id FROM academ.alumno WHERE matricula=$1", mat)
+            alu = await conn.fetchrow("SELECT id FROM academ.alumno WHERE no_control=$1", mat)
             if not alu: raise ValueError("Alumno no existe")
             grupo = await conn.fetchrow("SELECT id, periodo_id FROM academ.grupo WHERE nombre=$1", grp)
             if not grupo: raise ValueError("Grupo no existe")

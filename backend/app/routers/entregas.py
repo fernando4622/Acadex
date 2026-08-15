@@ -89,9 +89,9 @@ async def subir_entrega(
 
     hash_sha256 = hashlib.sha256(contenido).hexdigest()
 
-    # Obtener matricula del alumno (= No. Control)
+    # Obtener el numero de control vigente del alumno.
     num_control = await conn.fetchval(
-        "SELECT matricula FROM academ.alumno WHERE id=$1", alumno_id
+        "SELECT no_control FROM academ.alumno WHERE id=$1", alumno_id
     )
 
     # Calcular versión

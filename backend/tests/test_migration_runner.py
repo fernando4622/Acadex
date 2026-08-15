@@ -203,6 +203,33 @@ class MigrationDiscoveryTests(unittest.TestCase):
         self.assertNotIn("tipo_actividad,", backend)
         self.assertNotIn(".tipo_actividad", frontend)
 
+    def test_result_views_migration_uses_current_student_identifier(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        migration = (
+            backend_root / "migrations" / "011_alinear_identificadores_alumnos.sql"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("RENAME COLUMN matricula TO no_control", migration)
+        self.assertIn("column_name = 'no_control'", migration)
+        self.assertNotIn("DROP VIEW", migration)
+
+    def test_supported_queries_do_not_use_legacy_student_column(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        forbidden_fragments = (
+            "SELECT matricula FROM academ.alumno",
+            "CAST(matricula AS",
+            "WHERE matricula",
+            "INSERT INTO academ.alumno (matricula",
+            "ON CONFLICT (matricula)",
+            "al.matricula",
+            "vp.matricula",
+        )
+
+        for source in (backend_root / "app").rglob("*.py"):
+            content = source.read_text(encoding="utf-8")
+            for fragment in forbidden_fragments:
+                self.assertNotIn(fragment, content, source)
+
 
 if __name__ == "__main__":
     unittest.main()

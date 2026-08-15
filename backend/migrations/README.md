@@ -85,6 +85,10 @@ preservar el comportamiento observable, las actividades existentes se consideran
 la actualización; las nuevas comienzan con `publicada = FALSE` hasta que el docente las publique.
 La vista del alumno expone el nombre vigente del catálogo como `tipo_nombre` y omite borradores.
 
+La migración `011_alinear_identificadores_alumnos.sql` renombra a `no_control` la columna histórica
+que exponían las vistas de resultados. Los routers consultan ese nombre vigente y conservan
+`matricula` solo como alias temporal en respuestas que todavía consume el frontend.
+
 ## Inventario de scripts SQL heredados
 
 Los archivos de `bd/` todavía no forman una secuencia ejecutable completa. Su clasificación actual es:
