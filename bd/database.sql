@@ -555,7 +555,7 @@ $$;
 -- -----------------------------------------------------------------------------
 -- F02: Generar no_control institucional sin condiciones de carrera
 -- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION academ.fn_generar_num_control(p_anio SMALLINT)
+CREATE OR REPLACE FUNCTION academ.fn_generar_no_control(p_anio SMALLINT)
 RETURNS VARCHAR
 LANGUAGE plpgsql
 AS $$
@@ -586,7 +586,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION academ.fn_generar_num_control(SMALLINT) IS
+COMMENT ON FUNCTION academ.fn_generar_no_control(SMALLINT) IS
     'Genera un no_control atómico con formato YY02SSSS para el año indicado.';
 
 -- -----------------------------------------------------------------------------

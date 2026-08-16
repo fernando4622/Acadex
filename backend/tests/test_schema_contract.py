@@ -21,6 +21,10 @@ PROJECT_ROOT = BACKEND_ROOT.parent
 
 
 class SchemaContractTests(unittest.TestCase):
+    def test_routine_contract_uses_current_control_generator_name(self):
+        self.assertIn("fn_generar_no_control", RUTINAS_REQUERIDAS)
+        self.assertNotIn("fn_generar_num_control", RUTINAS_REQUERIDAS)
+
     def test_column_contract_uses_current_domain_names(self):
         self.assertIn("no_control", COLUMNAS_REQUERIDAS["alumno"])
         self.assertNotIn("matricula", COLUMNAS_REQUERIDAS["alumno"])

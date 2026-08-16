@@ -55,7 +55,7 @@ RUTINAS_REQUERIDAS = {
     "fn_calcular_resultado_materia",
     "fn_calcular_resultado_unidad",
     "fn_desglose_alumno",
-    "fn_generar_num_control",
+    "fn_generar_no_control",
     "fn_roles_usuario",
     "sp_activar_periodo",
     "sp_aplicar_bonus_unidad",

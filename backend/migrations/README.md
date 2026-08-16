@@ -89,6 +89,10 @@ La migración `011_alinear_identificadores_alumnos.sql` renombra a `no_control` 
 que exponían las vistas de resultados. Los routers consultan ese nombre vigente y conservan
 `matricula` solo como alias temporal en respuestas que todavía consume el frontend.
 
+La migración `012_renombrar_generador_no_control.sql` adopta
+`fn_generar_no_control(SMALLINT)` como nombre vigente. Renombra la función existente para conservar
+su identidad, permisos y dependencias; en instalaciones nuevas es una comprobación repetible.
+
 ## Inventario de scripts SQL heredados
 
 Los archivos de `bd/` todavía no forman una secuencia ejecutable completa. Su clasificación actual es:

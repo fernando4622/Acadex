@@ -90,7 +90,7 @@ async def subir_entrega(
     hash_sha256 = hashlib.sha256(contenido).hexdigest()
 
     # Obtener el numero de control vigente del alumno.
-    num_control = await conn.fetchval(
+    no_control = await conn.fetchval(
         "SELECT no_control FROM academ.alumno WHERE id=$1", alumno_id
     )
 
@@ -109,7 +109,7 @@ async def subir_entrega(
         act["periodo_codigo"],
         str(act["grupo_id"]),
         str(actividad_id),
-        f"{num_control}_{ts_unix}.{ext}"
+        f"{no_control}_{ts_unix}.{ext}"
     )
     full_path = os.path.join(UPLOAD_BASE, relative_path)
 

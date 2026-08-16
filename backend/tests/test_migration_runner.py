@@ -230,6 +230,33 @@ class MigrationDiscoveryTests(unittest.TestCase):
             for fragment in forbidden_fragments:
                 self.assertNotIn(fragment, content, source)
 
+    def test_control_generator_migration_preserves_the_existing_routine(self):
+        backend_root = Path(__file__).resolve().parents[1]
+        migration = (
+            backend_root / "migrations" / "012_renombrar_generador_no_control.sql"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "ALTER FUNCTION academ.fn_generar_num_control(SMALLINT)",
+            migration,
+        )
+        self.assertIn("RENAME TO fn_generar_no_control", migration)
+        self.assertNotIn("DROP FUNCTION", migration)
+
+    def test_supported_backend_calls_the_current_control_generator(self):
+        project_root = Path(__file__).resolve().parents[2]
+        backend = (
+            project_root / "backend" / "app" / "routers" / "alumnos.py"
+        ).read_text(encoding="utf-8")
+        bootstrap = (
+            project_root / "bd" / "database.sql"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("fn_generar_no_control", backend)
+        self.assertNotIn("fn_generar_num_control", backend)
+        self.assertIn("FUNCTION academ.fn_generar_no_control", bootstrap)
+        self.assertNotIn("FUNCTION academ.fn_generar_num_control", bootstrap)
+
 
 if __name__ == "__main__":
     unittest.main()
