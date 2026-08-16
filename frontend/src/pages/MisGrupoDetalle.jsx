@@ -18,6 +18,11 @@ const TIPO_CONFIG = {
 
 const DEFAULT_CFG = { gradient: 'from-slate-400 to-slate-500', shadow: 'shadow-slate-100', ring: 'ring-slate-100', icon: ClipboardList, color: 'text-slate-500' }
 
+const tipoKey = nombre => {
+  const normalizado = String(nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()
+  return normalizado === 'PRACTICA' ? 'PRACTICA_LAB' : normalizado
+}
+
 const TIPO_LABEL = {
   EXAMEN: 'Examen', TAREA: 'Tarea', PROYECTO: 'Proyecto',
   PRACTICA_LAB: 'Práctica Lab', FORO: 'Foro',
@@ -76,10 +81,10 @@ export default function MisGrupoDetalle() {
     if (inscripcionId) cargarDatos()
   }, [inscripcionId])
 
-  const tipos = ['TODOS', ...Object.keys(TIPO_LABEL)]
+  const tipos = ['TODOS', ...new Set(actividades.map(a => a.tipo_nombre).filter(Boolean))]
   const actsFiltradas = filtroTipo === 'TODOS'
     ? actividades
-    : actividades.filter(a => a.tipo_actividad === filtroTipo)
+    : actividades.filter(a => a.tipo_nombre === filtroTipo)
 
   // Agrupar por unidad (mostrando número + nombre)
   const porUnidad = actsFiltradas.reduce((acc, a) => {
@@ -141,7 +146,7 @@ export default function MisGrupoDetalle() {
                 >
                   {tipos.map(t => (
                     <option key={t} value={t}>
-                      {t === 'TODOS' ? 'Todas las actividades' : TIPO_LABEL[t]}
+                      {t === 'TODOS' ? 'Todas las actividades' : t}
                     </option>
                   ))}
                 </Select>
@@ -168,7 +173,7 @@ export default function MisGrupoDetalle() {
 
                     <div className="grid gap-3">
                       {acts.map((a, idx) => {
-                        const cfg = TIPO_CONFIG[a.tipo_actividad] ?? DEFAULT_CFG
+                        const cfg = TIPO_CONFIG[tipoKey(a.tipo_nombre)] ?? DEFAULT_CFG
                         const Icon = cfg.icon
                         const hasGrade = a.calificacion !== null && a.calificacion !== undefined
                         const isPass = hasGrade && a.calificacion >= 70
@@ -187,7 +192,7 @@ export default function MisGrupoDetalle() {
                                 <div className="flex items-center gap-2.5">
                                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-[11px] font-black uppercase tracking-wider bg-brand-800 shadow-sm">
                                     <Icon size={14} className="text-white" />
-                                    {TIPO_LABEL[String(a.tipo_actividad || '').toUpperCase()] || a.tipo_actividad}
+                                    {a.tipo_nombre || 'Sin tipo'}
                                   </span>
                                   <span className="text-xs font-black text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
                                     {a.ponderacion}%
@@ -209,7 +214,7 @@ export default function MisGrupoDetalle() {
 
                               {/* Descripción */}
                               <h4 className="text-[17px] font-black text-slate-800 leading-snug tracking-tight group-hover:text-brand-600 transition-colors line-clamp-2">
-                                {a.descripcion || `${TIPO_LABEL[String(a.tipo_actividad || '').toUpperCase()] || 'Actividad'} ${idx + 1}`}
+                                {a.descripcion || `${a.tipo_nombre || 'Actividad'} ${idx + 1}`}
                               </h4>
 
                               {/* Footer de la tarjeta */}
@@ -352,7 +357,7 @@ export default function MisGrupoDetalle() {
         <Modal
           open={modalAct.open}
           onClose={() => setModalAct({ open: false, data: null })}
-          title={TIPO_LABEL[modalAct.data?.tipo_actividad] || 'Detalle de Actividad'}
+          title={modalAct.data?.tipo_nombre || 'Detalle de Actividad'}
         >
           {modalAct.data && (
             <div className="space-y-6">
@@ -383,7 +388,7 @@ export default function MisGrupoDetalle() {
                   </div>
                   <div>
                     <p className="text-sm font-black text-indigo-900 uppercase tracking-tight">
-                      Actividad de {TIPO_LABEL[modalAct.data.tipo_actividad] || modalAct.data.tipo_actividad}
+                      Actividad de {modalAct.data.tipo_nombre || 'tipo no especificado'}
                     </p>
                     <p className="text-xs text-indigo-700 leading-relaxed font-medium mt-1">
                       Tu docente registrará tu calificación directamente en la plataforma.

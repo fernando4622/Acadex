@@ -1,6 +1,8 @@
 -- =============================================================================
--- MIGRACIÓN 001: Tabla de usuarios del sistema
--- Ejecutar DESPUÉS de schema.sql
+-- MIGRACIÓN HEREDADA: no ejecutar en el esquema actual de ACADEX.
+-- Conservada temporalmente como referencia histórica hasta consolidar el
+-- esquema canónico. Usa IDs SERIAL y un modelo de rol incompatible con el
+-- esquema UUID/multirol vigente.
 -- =============================================================================
 SET search_path = academ, public;
 

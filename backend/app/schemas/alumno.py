@@ -74,7 +74,7 @@ class AlumnoImportPreview(BaseModel):
     apellido_mat:        str | None = None
     fecha_nacimiento:    str
     curp:                str | None = None
-    no_control:          str | None = None       # generado (= num_control)
+    no_control:          str | None = None       # generado por el backend
     username:            str | None = None       # = no_control
     email:               str | None = None       # correo institucional generado
     nip_provisional:     str | None = None       # YYYYMMDD — texto claro, solo en preview

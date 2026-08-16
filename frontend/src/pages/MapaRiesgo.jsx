@@ -72,7 +72,7 @@ export default function MapaRiesgo() {
 
   const alumnosFiltrados = alumnos
     .filter(a => a.nivel_riesgo === 'ALTO' || a.nivel_riesgo === 'MEDIO')
-    .filter(a => a.alumno.toLowerCase().includes(search.toLowerCase()) || a.matricula.includes(search))
+    .filter(a => a.alumno.toLowerCase().includes(search.toLowerCase()) || a.no_control.includes(search))
 
   return (
     <div className="bg-slate-50/50 min-h-screen pb-20">
@@ -196,7 +196,7 @@ export default function MapaRiesgo() {
                     <tr key={a.inscripcion_id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-5">
                         <p className="font-bold text-slate-800">{a.alumno}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{a.matricula}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{a.no_control}</p>
                       </td>
                       <td className="px-6 py-5">
                         <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border ${

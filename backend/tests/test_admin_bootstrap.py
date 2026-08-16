@@ -26,7 +26,7 @@ class PasswordPolicyTests(unittest.TestCase):
 class BootstrapSeedTests(unittest.TestCase):
     def test_bootstrap_sources_do_not_create_known_credentials(self):
         sources = (
-            BACKEND_ROOT / "migrations" / "001_usuarios.sql",
+            BACKEND_ROOT / "migrations" / "legacy" / "001_usuarios.sql",
             PROJECT_ROOT / "bd" / "003_expansion.sql",
             PROJECT_ROOT / "bd" / "database.sql",
         )
@@ -47,6 +47,15 @@ class BootstrapSeedTests(unittest.TestCase):
             self.assertIn(fingerprint, migration)
         self.assertIn("MD5(password_hash)", migration)
         self.assertIn("activo = FALSE", migration)
+
+    def test_bulk_imports_do_not_fall_back_to_a_shared_password(self):
+        importer = (
+            BACKEND_ROOT / "app" / "routers" / "importacion.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("Tec2026!", importer)
+        self.assertIn("Fecha de nacimiento obligatoria o inválida", importer)
+        self.assertIn("pw_texto = generar_password_alumno(fecha_nac)", importer)
 
 
 if __name__ == "__main__":

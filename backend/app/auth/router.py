@@ -31,7 +31,7 @@ async def crear_usuario(body: UsuarioCreate, conn: Connection = Depends(get_conn
     """
     Crea un usuario y le asigna uno o varios roles.
     Si se indica alumno_id o docente_id, actualiza el campo usuario_id en esa entidad.
-    El campo 'username' es el identificador de acceso (num_control para alumnos).
+    El campo 'username' es el identificador de acceso (no_control para alumnos).
     """
     hashed = hash_password(body.password)
     async with conn.transaction():

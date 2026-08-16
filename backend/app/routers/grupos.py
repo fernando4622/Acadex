@@ -9,7 +9,7 @@ from app.database import get_conn
 from app.middleware.auth import require_admin, require_docente_o_admin, get_current_user, assert_docente_en_grupo, is_admin, is_docente, is_alumno
 from app.schemas.grupo import GrupoCreate, GrupoResponse
 from app.errors import handle_pg_error
-from app.helpers.materia_carrera import resolver_grupo_desde_clave_materia
+from app.helpers.plan_materia import resolver_grupo_desde_clave_materia
 
 router = APIRouter(prefix="/grupos", tags=["Grupos"])
 
@@ -188,7 +188,7 @@ async def alumnos_del_grupo(
         assert_docente_en_grupo(user, grupo_id)
         rows = await conn.fetch(
             """SELECT i.id AS inscripcion_id, i.estado AS estado_inscripcion,
-                      a.id AS alumno_id, a.no_control AS matricula,
+                      a.id AS alumno_id, a.no_control,
                       a.nombre || ' ' || a.apellido_pat || ' ' || COALESCE(a.apellido_mat, '') AS alumno
                FROM academ.inscripcion i
                JOIN academ.alumno a ON a.id=i.alumno_id

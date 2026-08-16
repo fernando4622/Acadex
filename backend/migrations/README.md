@@ -1,0 +1,176 @@
+# Migraciones de base de datos
+
+## Fuente de verdad actual
+
+- `bd/database.sql` inicializa el esquema base; las migraciones soportadas lo llevan al contrato vigente.
+- Los archivos SQL de este directorio actualizan instalaciones existentes.
+- `legacy/` contiene scripts históricos y nunca debe ejecutarse automáticamente.
+
+Esta separación es transitoria. La consolidación completa del esquema inicial se realizará en los siguientes módulos de `ACADEX-005`.
+
+## Ejecución
+
+Desde `backend`, con las variables `DATABASE_URL` o `DB_*` configuradas:
+
+```powershell
+python -m scripts.aplicar_migraciones
+```
+
+Para inspeccionar la secuencia sin conectarse:
+
+```powershell
+python -m scripts.aplicar_migraciones --listar
+```
+
+El ejecutor:
+
+- procesa únicamente archivos `NNN_nombre_en_espanol.sql` del directorio actual;
+- ignora deliberadamente `legacy/`;
+- registra versión, nombre y checksum SHA-256 en `academ.migracion_esquema`;
+- rechaza una migración aplicada cuyo contenido haya cambiado;
+- usa un bloqueo transaccional para evitar ejecuciones concurrentes;
+- aplica todas las migraciones pendientes en una sola transacción.
+
+## Reglas
+
+1. No modificar una migración después de aplicarla y publicarla.
+2. Crear un archivo con el siguiente número para cualquier corrección posterior.
+3. Escribir migraciones repetibles cuando sea razonable, pero no depender únicamente de ello.
+4. Respaldar la base antes de cambios destructivos o de transformación de datos.
+5. No incluir credenciales ni datos reales.
+
+## Catálogos académicos vigentes
+
+La migración `004_crear_planes_estudio.sql` establece la relación soportada:
+
+```text
+carrera → plan_estudio → plan_materia → materia
+```
+
+No crea datos institucionales ni intenta reconstruir asociaciones históricas. En una actualización,
+los vínculos existentes deben migrarse con una estrategia de datos explícita antes de retirar cualquier
+estructura anterior.
+
+La migración `005_alinear_alumnos.sql` adopta `no_control` como nombre vigente. Cuando encuentra
+`matricula` en una instalación anterior, renombra la columna en lugar de copiar o regenerar valores.
+También incorpora la relación opcional con `plan_estudio` y los datos actuales de identificación
+académica (`curp`, fecha de nacimiento y semestre).
+
+La migración `006_alinear_periodos.sql` reemplaza el indicador booleano histórico `activo` por el
+estado de dominio actual (`proximo`, `activo` o `cerrado`). Al actualizar una instalación antigua,
+un valor verdadero se conserva como `activo` y uno falso como `cerrado`. El trigger de actualización
+mantiene `updated_at` sin depender de cada consumidor.
+
+La migración `007_alinear_grupos.sql` adopta `plan_materia_id` como la relación curricular vigente.
+Solo convierte automáticamente un grupo histórico cuando su materia aparece exactamente una vez en
+`plan_materia`. Si la relación falta o es ambigua, la migración aborta sin cambios para que la asociación
+se resuelva explícitamente. La columna histórica puede conservarse temporalmente en una actualización,
+pero no forma parte del contrato ni del bootstrap actuales.
+
+La migración `008_alinear_materias_actividades.sql` reemplaza el `ENUM` histórico de actividades por
+`tipo_actividad_catalogo`, que es el modelo extensible consumido por el backend. Convierte los valores
+conocidos sin regenerar identificadores y aborta si encuentra un tipo que no puede mapear. La columna
+`tipo` se conserva temporalmente, permitiendo valores nulos, para facilitar verificación y recuperación;
+no forma parte del contrato ni de una instalación nueva. También incorpora las horas de materia, las
+fechas operativas de actividad y sus marcas automáticas de actualización.
+
+La migración `009_establecer_rutinas_nucleo.sql` incorpora el contador y la función vigentes para
+generar `no_control` con formato `YY02SSSS`. Al actualizar, recupera el mayor consecutivo de los
+controles compatibles y nunca reduce un contador existente. También establece la activación atómica
+de periodos: serializa solicitudes concurrentes, garantiza como máximo un periodo activo y conserva
+en auditoría el estado real que tenía el periodo antes de activarlo.
+
+La migración `010_publicar_actividades.sql` formaliza el estado de borrador/publicación. Para
+preservar el comportamiento observable, las actividades existentes se consideran publicadas durante
+la actualización; las nuevas comienzan con `publicada = FALSE` hasta que el docente las publique.
+La vista del alumno expone el nombre vigente del catálogo como `tipo_nombre` y omite borradores.
+
+La migración `011_alinear_identificadores_alumnos.sql` renombra a `no_control` la columna histórica
+que exponían las vistas de resultados. Los routers consultan ese nombre vigente y conservan
+`matricula` solo como alias temporal en respuestas que todavía consume el frontend.
+
+La migración `012_renombrar_generador_no_control.sql` adopta
+`fn_generar_no_control(SMALLINT)` como nombre vigente. Renombra la función existente para conservar
+su identidad, permisos y dependencias. El bootstrap conserva el nombre predecesor durante la
+instalación para que la misma secuencia ordenada produzca el estado final tanto desde cero como al
+actualizar una base existente.
+
+## Inventario de scripts SQL heredados
+
+Los archivos de `bd/` todavía no forman una secuencia ejecutable completa. Su clasificación actual es:
+
+| Archivo | Estado | Decisión |
+|---|---|---|
+| `database.sql` | Bootstrap principal, pero incompleto respecto al backend actual | Mantener temporalmente y consolidar en `ACADEX-005` |
+| `003_expansion.sql` | Parcialmente aplicado; mezcla núcleo y capacidades avanzadas | Extraer cada capacidad en una migración independiente solo cuando se active |
+| `004_registro_alumnos.sql` | Modelo `username`/`nip_hash` no utilizado por la autenticación actual | No ejecutar; candidato a `legacy/` |
+| `005_horarios.sql` | Define la capacidad avanzada `horario_grupo` | Promover cuando se formalice la detección de choques de horario |
+| `006_asistencia_auto.sql` | Módulo de asistencia sin consumidor activo en el backend | Mantener fuera de la secuencia hasta decidir el producto |
+| `007_asistencia_cadena.sql` | Reemplaza rutinas de `006`, pero depende de su tabla | Mantener fuera de la secuencia junto con `006` |
+| `db_expansion_v2.sql` | Contiene `materia_carrera`, reemplazada conceptualmente por `plan_materia → plan_estudio → carrera` | No recrear `materia_carrera`; retirar sus referencias residuales del backend |
+| `backend/app/database/fix_*.sql` | Reparaciones manuales sin versionar | Comparar contra las definiciones canónicas antes de archivarlas |
+| `backend/scratch/*.sql` | Salidas de diagnóstico | Nunca ejecutar como migraciones |
+
+El comando siguiente compara el contrato mínimo utilizado por el backend con una base real:
+
+```powershell
+python -m scripts.verificar_esquema
+```
+
+El comando siguiente ejecuta consultas de lectura representativas sobre inscripciones, captura de
+calificaciones, resultados, actividades publicadas y cálculo dinámico:
+
+```powershell
+python -m scripts.verificar_consultas_criticas
+```
+
+La comprobación completa se ejecuta dentro de una transacción de solo lectura y no altera datos.
+
+Para comprobar estáticamente lo que producirían `bd/database.sql` y las migraciones soportadas:
+
+```powershell
+python -m scripts.verificar_esquema --bootstrap ../bd/database.sql
+```
+
+Para construir una base temporal real, aplicar el bootstrap y todas las migraciones, verificar su
+contrato y eliminarla automáticamente al terminar:
+
+```powershell
+python -m scripts.verificar_instalacion_limpia
+```
+
+El usuario configurado debe tener permiso `CREATEDB`. La herramienta solo elimina nombres aleatorios
+con el prefijo `acadex_validacion_`; no reutiliza ni modifica la base indicada en `DB_NAME`.
+
+Antes de actualizar una instalación existente, el comando siguiente crea un respaldo permanente,
+lo restaura en una base temporal, aplica solo las migraciones pendientes, compara cantidades de datos
+críticos y verifica el contrato resultante:
+
+```powershell
+python -m scripts.verificar_actualizacion
+```
+
+Los respaldos quedan fuera de Git en `backend/tmp/backups/`. La base original no se modifica durante
+esta verificación; la copia temporal se elimina incluso cuando una migración falla.
+
+Mientras la consolidación siga pendiente, este segundo comando termina con código `1` y enumera
+los objetos y columnas vigentes que todavía no están declarados por el camino de instalación limpio.
+El contrato usa exclusivamente los nombres actuales (`no_control`, `plan_materia_id`, `estado` y
+`tipo_catalogo_id`); los nombres históricos no se aceptan como equivalentes.
+
+El verificador separa errores del núcleo de capacidades avanzadas no instaladas.
+Las capacidades opcionales se informan sin invalidar una instalación básica.
+
+## Capacidades avanzadas
+
+Estas estructuras deben implementarse como migraciones independientes, no como parte accidental del núcleo:
+
+- `avance_reticular`: seguimiento consolidado del avance académico.
+- `entrega_actividad`: evidencias y versiones de tareas entregadas.
+- `horario_grupo`: detección de choques entre horarios.
+- `notificacion`: alertas internas para alumnos y docentes.
+- `prerrequisito`: bloqueo de inscripción cuando falta una materia requerida.
+
+Aunque existen routers que ya las referencian, no deben considerarse completas hasta que su migración, reglas de negocio y pruebas integradas se entreguen juntas.
+
+`materia_carrera` no pertenece a esta lista: es un modelo anterior. La relación vigente se obtiene desde `plan_materia`, su `plan_estudio` y la `carrera` del plan.

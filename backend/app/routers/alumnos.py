@@ -135,8 +135,8 @@ async def crear_alumno(
 ):
     """
     Registra un alumno nuevo. En una sola transacción:
-    1. Genera num_control vía fn_generar_num_control
-    2. Genera email = L{num_control}@veracruz.tecnm.mx
+    1. Genera no_control vía fn_generar_no_control
+    2. Genera email = L{no_control}@veracruz.tecnm.mx
     3. Crea usuario (email = correo institucional, password = NIP)
     """
     if not body.fecha_nacimiento:
@@ -160,7 +160,7 @@ async def crear_alumno(
                 })
 
         no_control = await conn.fetchval(
-            "SELECT academ.fn_generar_num_control(EXTRACT(YEAR FROM CURRENT_DATE)::SMALLINT)"
+            "SELECT academ.fn_generar_no_control(EXTRACT(YEAR FROM CURRENT_DATE)::SMALLINT)"
         )
         email_inst = _correo_institucional(no_control)
 

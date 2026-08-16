@@ -9,10 +9,6 @@ from app.schemas.carrera import CarreraCreate, CarreraResponse
 from app.schemas.plan_estudio import PlanEstudioCreate, PlanEstudioResponse
 from app.schemas.plan_materia import PlanMateriaCreate, PlanMateriaResponse
 from app.schemas.prerrequisito import PrerrequisitoCreate, PrerrequisitoResponse
-from app.helpers.materia_carrera import (
-    resolver_celdas_carreras_materias_csv
-)
-
 router = APIRouter(tags=["Catálogos"])
 
 
@@ -633,9 +629,10 @@ async def obtener_analytics_materia(
             ROUND(AVG(rm.resultado_final)::numeric, 2) as promedio_global,
             COUNT(DISTINCT i.alumno_id) as total_alumnos_historico
         FROM academ.grupo g
+        JOIN academ.plan_materia pm ON pm.id = g.plan_materia_id
         LEFT JOIN academ.inscripcion i ON i.grupo_id = g.id AND i.estado = 'ACTIVA'
         LEFT JOIN academ.resultado_materia rm ON rm.inscripcion_id = i.id
-        WHERE g.materia_id = $1""",
+        WHERE pm.materia_id = $1""",
         materia_id
     )
     
@@ -647,10 +644,11 @@ async def obtener_analytics_materia(
             COUNT(rm.id) FILTER (WHERE rm.resultado_final >= 70) as aprobados,
             ROUND(AVG(rm.resultado_final)::numeric, 2) as promedio_grupo
         FROM academ.grupo g
+        JOIN academ.plan_materia pm ON pm.id = g.plan_materia_id
         JOIN academ.periodo_academico p ON p.id = g.periodo_id
         LEFT JOIN academ.inscripcion i ON i.grupo_id = g.id AND i.estado = 'ACTIVA'
         LEFT JOIN academ.resultado_materia rm ON rm.inscripcion_id = i.id
-        WHERE g.materia_id = $1
+        WHERE pm.materia_id = $1
         GROUP BY g.id, p.id, p.codigo, g.nombre
         ORDER BY p.id ASC
         LIMIT 20""",

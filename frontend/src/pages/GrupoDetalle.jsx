@@ -366,8 +366,8 @@ export default function GrupoDetalle() {
     const search = normalize(alumnoSearch).trim()
     if (!search) return true
     const fullName = normalize([a.nombre, a.apellido_pat, a.apellido_mat].filter(Boolean).join(' '))
-    const matricula = normalize(a.matricula)
-    return fullName.includes(search) || matricula.includes(search)
+    const noControl = normalize(a.no_control)
+    return fullName.includes(search) || noControl.includes(search)
   })
 
   return (
@@ -505,7 +505,7 @@ export default function GrupoDetalle() {
                             {i.alumno_nombre}
                           </span>
                         </td>
-                        <td className="py-2.5 font-mono text-xs text-slate-500 bg-slate-50 rounded px-2">{i.alumno_matricula}</td>
+                        <td className="py-2.5 font-mono text-xs text-slate-500 bg-slate-50 rounded px-2">{i.alumno_no_control}</td>
                         <td className="py-2.5"><Badge estado={i.estado === 'ACTIVA' ? 'ACTIVA' : 'BAJA'} /></td>
                         {puedeGestionarAlumnos && grupo.estado === 'ACTIVO' && (
                           <td className="py-2.5 text-right">
@@ -901,7 +901,7 @@ export default function GrupoDetalle() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-800">{a.nombre} {a.apellido_pat} {a.apellido_mat}</p>
-                  <p className="text-xs text-slate-500 font-mono">No. Control: {a.num_control} {a.matricula && `${a.matricula}`}</p>
+                  <p className="text-xs text-slate-500 font-mono">No. Control: {a.no_control}</p>
                 </div>
               </button>
             ))}
@@ -931,7 +931,7 @@ export default function GrupoDetalle() {
 
           <div className="bg-slate-50 p-3 rounded-lg text-sm text-slate-700">
             <p className="font-bold mb-1">Formato CSV esperado:</p>
-            <p className="font-mono text-xs">Debe contener: <strong>num_control</strong></p>
+            <p className="font-mono text-xs">Debe contener: <strong>no_control</strong></p>
           </div>
 
           <div>
@@ -1020,7 +1020,7 @@ export default function GrupoDetalle() {
                       desviacion_estandar: stdDev
                     },
                     resUnidad.map(r => ({
-                      matricula: r.matricula,
+                      no_control: r.no_control,
                       alumno: r.alumno,
                       resultado_final: r.resultado,
                       bonus_unidad: r.bonus_unidad,
@@ -1061,7 +1061,7 @@ export default function GrupoDetalle() {
                   <tr key={r.inscripcion_id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-5 py-3">
                       <p className="font-medium text-gray-900">{r.alumno}</p>
-                      <p className="text-xs text-gray-400">{r.matricula}</p>
+                      <p className="text-xs text-gray-400">{r.no_control}</p>
                     </td>
                     <td className="px-3 py-3 text-center">
                       <CalDisplay valor={r.promedio_parcial} size="sm" />

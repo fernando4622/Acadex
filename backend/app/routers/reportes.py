@@ -42,7 +42,7 @@ async def boleta_alumno(
 
     # Datos del alumno
     alumno = await conn.fetchrow(
-        """SELECT a.matricula, a.no_control,
+        """SELECT a.no_control,
                   a.nombre || ' ' || a.apellido_pat || COALESCE(' ' || a.apellido_mat, '') AS nombre_completo,
                   a.email,
                   c.nombre AS carrera,
@@ -157,7 +157,7 @@ async def calificaciones_por_grupo(
     # Alumnos con resultados
     alumnos = await conn.fetch(
         """SELECT
-                a.no_control AS matricula,
+                a.no_control,
                 a.nombre || ' ' || a.apellido_pat || COALESCE(' ' || a.apellido_mat,'') AS alumno,
                 i.id AS inscripcion_id,
                 rm.resultado_final,
@@ -216,7 +216,7 @@ async def reporte_por_materia(
                 g.nombre            AS grupo,
                 g.clave_grupo,
                 d.nombre || ' ' || d.apellido_pat AS docente,
-                a.no_control        AS matricula,
+                a.no_control,
                 a.nombre || ' ' || a.apellido_pat || COALESCE(' ' || a.apellido_mat,'') AS alumno,
                 i.id                AS inscripcion_id,
                 rm.resultado_final,
@@ -370,7 +370,7 @@ async def lista_reprobados(
 
     rows = await conn.fetch(
         f"""SELECT
-                a.no_control    AS matricula,
+                a.no_control,
                 a.nombre || ' ' || a.apellido_pat || COALESCE(' ' || a.apellido_mat,'') AS alumno,
                 m.nombre        AS materia,
                 m.clave         AS clave_materia,
@@ -410,7 +410,7 @@ async def riesgo_academico(
     # Si no se da periodo, usar el activo
     if not periodo_id:
         periodo_id = await conn.fetchval(
-            "SELECT id FROM academ.periodo_academico WHERE activo = TRUE LIMIT 1"
+            "SELECT id FROM academ.periodo_academico WHERE estado = 'activo' LIMIT 1"
         )
     if not periodo_id:
         return {"periodo_id": None, "alumnos": [], "resumen": {}}
@@ -420,7 +420,7 @@ async def riesgo_academico(
 
     rows = await conn.fetch(
         f"""SELECT
-                a.no_control    AS matricula,
+                a.no_control,
                 a.nombre || ' ' || a.apellido_pat || COALESCE(' ' || a.apellido_mat,'') AS alumno,
                 g.nombre        AS grupo,
                 g.id            AS grupo_id,
@@ -481,7 +481,7 @@ async def estado_captura(
     """
     if not periodo_id:
         periodo_id = await conn.fetchval(
-            "SELECT id FROM academ.periodo_academico WHERE activo = TRUE LIMIT 1"
+            "SELECT id FROM academ.periodo_academico WHERE estado = 'activo' LIMIT 1"
         )
 
     rows = await conn.fetch(

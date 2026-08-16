@@ -8,12 +8,11 @@ Flujo para cada entidad:
   4. Devuelve resumen: insertados, omitidos (ya existían), errores con detalle por fila
 
 Formato esperado de cada CSV:
-  alumnos.csv      → matricula, nombre, apellido_pat, apellido_mat (opc), email (opc)
-  materias.csv     → clave, nombre, creditos (opc), unidades (opc, nombres con |),
-                     carreras (COMUN | claves con | igual que unidades); legado carrera/carrera_clave
+  alumnos.csv      → no_control, nombre, apellido_pat, apellido_mat (opc), email (opc)
+  materias.csv     → clave, nombre, creditos (opc), unidades (opc, nombres con |)
   grupos.csv       → clave_materia debe coincidir con academ.materia.clave; si la materia
                      tiene más de una carrera, usar columna carrera o carrera_clave
-  inscripciones.csv→ idem grupo en triplete nombre_grupo + clave_materia + codigo_periodo
+  inscripciones.csv→ no_control + nombre_grupo
 """
 import csv
 import io
@@ -23,11 +22,7 @@ from asyncpg import Connection
 
 from app.database import get_conn
 from app.middleware.auth import require_admin
-from app.helpers.materia_carrera import (
-    resolver_celdas_carreras_materias_csv,
-    resolver_grupo_desde_clave_materia,
-    sync_materia_carreras,
-)
+from app.helpers.plan_materia import resolver_grupo_desde_clave_materia
 from app.routers.docentes import generar_email_docente, hash_password
 from app.schemas.docente import DocenteImportPreview
 from app.schemas.alumno import AlumnoImportPreview
@@ -43,6 +38,18 @@ def generar_email_alumno(matricula: str) -> str:
 def generar_password_alumno(fecha_nac) -> str:
     """Genera el NIP provisional (YYYYMMDD)."""
     return fecha_nac.strftime("%Y%m%d")
+
+
+def parsear_fecha_nacimiento(valor: str):
+    """Convierte los formatos CSV admitidos a una fecha o devuelve None."""
+    if not valor:
+        return None
+    for formato in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(valor, formato).date()
+        except ValueError:
+            continue
+    return None
 
 
 def _parse_csv(content: bytes) -> list[dict]:
@@ -76,7 +83,7 @@ async def preview_alumnos(
     filas = _parse_csv(await archivo.read())
     results = []
 
-    matriculas_existentes = {r["matricula"] for r in await conn.fetch("SELECT matricula FROM academ.alumno")}
+    matriculas_existentes = {r["no_control"] for r in await conn.fetch("SELECT no_control FROM academ.alumno")}
     emails_existentes = {r["email"] for r in await conn.fetch("SELECT email FROM academ.usuario")}
     matriculas_csv = set()
     emails_csv = set()
@@ -85,7 +92,7 @@ async def preview_alumnos(
     from datetime import datetime
     año = datetime.now().year % 100
     ultimo_val = await conn.fetchval(
-        "SELECT MAX(CAST(matricula AS BIGINT)) FROM academ.alumno WHERE matricula ~ '^[0-9]+$' AND matricula LIKE $1",
+        "SELECT MAX(CAST(no_control AS BIGINT)) FROM academ.alumno WHERE no_control ~ '^[0-9]+$' AND no_control LIKE $1",
         f"{año}%"
     )
     if ultimo_val:
@@ -95,7 +102,7 @@ async def preview_alumnos(
         secuencia_actual = int(f"{año}020001")
 
     for i, fila in enumerate(filas, start=1):
-        matricula = fila.get("matricula") or fila.get("numero_control") or fila.get("num_control")
+        matricula = fila.get("no_control") or fila.get("matricula") or fila.get("numero_control") or fila.get("num_control")
         if not matricula:
             matricula = str(secuencia_actual)
             secuencia_actual += 1
@@ -109,15 +116,8 @@ async def preview_alumnos(
         # Generar email/nip para preview
         email_preview = fila.get("email") or (generar_email_alumno(matricula) if matricula else None)
         
-        # Parsear fecha para NIP
-        nip_preview = None
-        if fecha_nac_str:
-            for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
-                try:
-                    fecha_nac = datetime.strptime(fecha_nac_str, fmt).date()
-                    nip_preview = generar_password_alumno(fecha_nac)
-                    break
-                except ValueError: continue
+        fecha_nac = parsear_fecha_nacimiento(fecha_nac_str)
+        nip_preview = generar_password_alumno(fecha_nac) if fecha_nac else None
 
         # Revisar si existe por CURP (Sincronización con el fix de duplicados)
         ya_existe = False
@@ -132,6 +132,8 @@ async def preview_alumnos(
         if not matricula: error = "Matrícula/No. Control es obligatorio"
         elif not nombre: error = "Nombre es obligatorio"
         elif not ap_pat: error = "Apellido Paterno es obligatorio"
+        elif not fecha_nac_str: error = "Fecha de nacimiento es obligatoria para generar el NIP provisional"
+        elif not fecha_nac: error = "Fecha de nacimiento inválida"
         elif matricula in matriculas_existentes: error = f"Matrícula {matricula} ya existe"
         elif matricula in matriculas_csv: error = f"Matrícula {matricula} duplicada en CSV"
         elif email_preview and email_preview in emails_existentes: error = f"Email {email_preview} ya está en uso"
@@ -141,7 +143,7 @@ async def preview_alumnos(
         if email_preview: emails_csv.add(email_preview)
 
         results.append(AlumnoImportPreview(
-            fila=i, matricula=matricula, nombre=nombre or "ERROR",
+            fila=i, no_control=matricula, nombre=nombre or "ERROR",
             apellido_pat=ap_pat or "ERROR", apellido_mat=ap_mat,
             fecha_nacimiento=fecha_nac_str, email=email_preview,
             curp=curp, nip_provisional=nip_preview,
@@ -163,13 +165,13 @@ async def confirmar_importar_alumnos(
     errores = []
 
     # Obtener existentes para saltar
-    matriculas_existentes = {r["matricula"] for r in await conn.fetch("SELECT matricula FROM academ.alumno")}
+    matriculas_existentes = {r["no_control"] for r in await conn.fetch("SELECT no_control FROM academ.alumno")}
     emails_existentes = {r["email"] for r in await conn.fetch("SELECT email FROM academ.usuario")}
 
     # Preparar secuencia para matrículas auto-generadas
     año = datetime.now().year % 100
     ultimo_val = await conn.fetchval(
-        "SELECT MAX(CAST(matricula AS BIGINT)) FROM academ.alumno WHERE matricula ~ '^[0-9]+$' AND matricula LIKE $1",
+        "SELECT MAX(CAST(no_control AS BIGINT)) FROM academ.alumno WHERE no_control ~ '^[0-9]+$' AND no_control LIKE $1",
         f"{año}%"
     )
     if ultimo_val:
@@ -178,7 +180,7 @@ async def confirmar_importar_alumnos(
         secuencia_actual = int(f"{año}020001")
 
     for i, fila in enumerate(filas, start=1):
-        matricula = fila.get("matricula") or fila.get("numero_control") or fila.get("num_control")
+        matricula = fila.get("no_control") or fila.get("matricula") or fila.get("numero_control") or fila.get("num_control")
         if not matricula:
             matricula = str(secuencia_actual)
             secuencia_actual += 1
@@ -199,14 +201,28 @@ async def confirmar_importar_alumnos(
             continue
 
         try:
-            # Parsear fecha
-            fecha_nac = None
-            if fecha_nac_str:
-                for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
-                    try:
-                        fecha_nac = datetime.strptime(fecha_nac_str, fmt).date()
-                        break
-                    except ValueError: continue
+            fecha_nac = parsear_fecha_nacimiento(fecha_nac_str)
+            if not fecha_nac:
+                errores.append({
+                    "fila": i,
+                    "error": "Fecha de nacimiento obligatoria o inválida; no se generaron credenciales",
+                })
+                continue
+
+            plan_estudio_id = None
+            if plan_id:
+                try:
+                    plan_estudio_id = int(plan_id)
+                except (TypeError, ValueError):
+                    raise ValueError("plan_estudio_id debe ser un número entero")
+                if plan_estudio_id <= 0:
+                    raise ValueError("plan_estudio_id debe ser mayor que cero")
+                plan_existe = await conn.fetchval(
+                    "SELECT id FROM academ.plan_estudio WHERE id=$1",
+                    plan_estudio_id,
+                )
+                if not plan_existe:
+                    raise ValueError(f"Plan de estudios {plan_estudio_id} no existe")
 
             # Generación de credenciales
             email_inst = fila.get("email") or generar_email_alumno(matricula)
@@ -215,7 +231,7 @@ async def confirmar_importar_alumnos(
                 errores.append({"fila": i, "error": f"Email {email_inst} ya está en uso (Omitido)"})
                 continue
 
-            pw_texto = generar_password_alumno(fecha_nac) if fecha_nac else "Tec2026!"
+            pw_texto = generar_password_alumno(fecha_nac)
             pw_hashed = hash_password(pw_texto)
 
             # Revisar si existe por CURP (Fix para evitar errores de unicidad)
@@ -237,23 +253,22 @@ async def confirmar_importar_alumnos(
                 if rol_id:
                     await conn.execute("INSERT INTO academ.usuario_rol (usuario_id, rol_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", usuario_id, rol_id)
 
-                from uuid import UUID
                 # 3. Alumno
                 await conn.execute(
                     """
-                    INSERT INTO academ.alumno (matricula, nombre, apellido_pat, apellido_mat, fecha_nacimiento, email, curp, plan_estudio_id, usuario_id)
+                    INSERT INTO academ.alumno (no_control, nombre, apellido_pat, apellido_mat, fecha_nacimiento, email, curp, plan_estudio_id, usuario_id)
                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-                    ON CONFLICT (matricula) DO UPDATE SET 
+                    ON CONFLICT (no_control) DO UPDATE SET
                         nombre=EXCLUDED.nombre, apellido_pat=EXCLUDED.apellido_pat, 
                         apellido_mat=EXCLUDED.apellido_mat, fecha_nacimiento=EXCLUDED.fecha_nacimiento, 
                         email=EXCLUDED.email, curp=EXCLUDED.curp, plan_estudio_id=EXCLUDED.plan_estudio_id, usuario_id=EXCLUDED.usuario_id
                     """,
                     matricula, nombre, ap_pat, ap_mat, fecha_nac, email_inst, curp, 
-                    UUID(plan_id) if plan_id and len(str(plan_id)) > 5 else None, usuario_id
+                    plan_estudio_id, usuario_id
                 )
                 ins += 1
                 resultados.append({
-                    "matricula": matricula, "nombre": f"{nombre} {ap_pat}",
+                    "no_control": matricula, "nombre": f"{nombre} {ap_pat}",
                     "email": email_inst, "password": pw_texto
                 })
         except Exception as e:
@@ -292,6 +307,8 @@ async def preview_docentes(
         if not num_empleado: error = "Num. Empleado es obligatorio"
         elif not nombre: error = "Nombre es obligatorio"
         elif not ap_pat: error = "Apellido Paterno es obligatorio"
+        elif not fecha: error = "Fecha de nacimiento es obligatoria para generar el NIP provisional"
+        elif not parsear_fecha_nacimiento(fecha): error = "Fecha de nacimiento inválida"
         elif num_empleado in empleados_existentes: 
             error = f"Num. Empleado {num_empleado} ya existe"
             ya_existe = True
@@ -347,13 +364,13 @@ async def confirmar_importar_docentes(
             continue
 
         try:
-            fecha_nac = None
-            if fecha_nac_str:
-                for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
-                    try:
-                        fecha_nac = datetime.strptime(fecha_nac_str, fmt).date()
-                        break
-                    except ValueError: continue
+            fecha_nac = parsear_fecha_nacimiento(fecha_nac_str)
+            if not fecha_nac:
+                errores.append({
+                    "fila": i,
+                    "error": "Fecha de nacimiento obligatoria o inválida; no se generaron credenciales",
+                })
+                continue
 
             email_inst = fila.get("email") or generar_email_docente(nombre, ap_pat, ap_mat)
             
@@ -361,8 +378,7 @@ async def confirmar_importar_docentes(
                 errores.append({"fila": i, "error": f"Email {email_inst} ya registrado (Omitido)"})
                 continue
 
-            # NIP provisional (YYYYMMDD si hay fecha, si no Tec2026!)
-            pw_texto = fecha_nac.strftime("%Y%m%d") if fecha_nac else "Tec2026!"
+            pw_texto = generar_password_alumno(fecha_nac)
             pw_hashed = hash_password(pw_texto)
 
             async with conn.transaction():
@@ -409,11 +425,9 @@ async def preview_materias(
         clave = (fila.get("clave") or fila.get("codigo") or "").strip().upper()
         nombre = (fila.get("nombre") or "").strip()
         cred = fila.get("creditos") or fila.get("cred")
-        campo_carreras_raw = (fila.get("carreras") or fila.get("carrera") or fila.get("carrera_clave") or "")
-
         r = {
             "fila": i, "clave": clave or "—", "nombre": nombre or "—",
-            "creditos": cred or "—", "carreras": campo_carreras_raw or "—",
+            "creditos": cred or "—",
             "error": None, "ya_existe": False
         }
 
@@ -422,7 +436,6 @@ async def preview_materias(
             results.append(r); continue
 
         try:
-            await resolver_celdas_carreras_materias_csv(conn, campo_carreras_raw)
             ya_existe = await conn.fetchval("SELECT id FROM academ.materia WHERE clave = $1 OR nombre = $2", clave, nombre.strip())
             r["ya_existe"] = bool(ya_existe)
         except Exception as e: r["error"] = str(e)
@@ -444,14 +457,11 @@ async def importar_materias(
         clave = (fila.get("clave") or fila.get("codigo") or "").strip().upper()
         nombre = (fila.get("nombre") or "").strip()
         cred = fila.get("creditos") or fila.get("cred")
-        campo_carreras_raw = (fila.get("carreras") or fila.get("carrera") or fila.get("carrera_clave") or "")
-
         if not clave or not nombre:
             errores.append({"fila": i, "error": "Campos obligatorios faltantes"})
             continue
 
         try:
-            ids_carreras = await resolver_celdas_carreras_materias_csv(conn, campo_carreras_raw)
             creditos = int(cred) if cred else None
             unidades_raw = fila.get("unidades") or fila.get("temas")
 
@@ -471,7 +481,6 @@ async def importar_materias(
                     for num, nom in enumerate(lista_unidades, start=1):
                         await conn.execute("INSERT INTO academ.unidad_plantilla (materia_id, numero, nombre) VALUES ($1, $2, $3) ON CONFLICT (materia_id, numero) DO UPDATE SET nombre=EXCLUDED.nombre", materia_id, num, nom)
 
-                await sync_materia_carreras(conn, materia_id, ids_carreras)
                 if es_nueva: ins += 1
                 else: omit += 1
         except Exception as e: errores.append({"fila": i, "error": str(e)})
@@ -588,13 +597,13 @@ async def preview_inscripciones(
     filas = _parse_csv(await archivo.read())
     results = []
     for i, fila in enumerate(filas, start=2):
-        mat = fila.get("numero_control") or fila.get("num_control") or fila.get("matricula")
+        mat = fila.get("no_control") or fila.get("numero_control") or fila.get("num_control") or fila.get("matricula")
         grp = fila.get("nombre_grupo") or fila.get("grupo") or fila.get("nombre")
-        r = {"fila": i, "matricula": mat or "—", "grupo": grp or "—", "error": None, "ya_existe": False}
+        r = {"fila": i, "no_control": mat or "—", "grupo": grp or "—", "error": None, "ya_existe": False}
         if not mat or not grp:
             r["error"] = "Campos faltantes"; results.append(r); continue
         try:
-            alu = await conn.fetchrow("SELECT id FROM academ.alumno WHERE matricula=$1", mat)
+            alu = await conn.fetchrow("SELECT id FROM academ.alumno WHERE no_control=$1", mat)
             if not alu: raise ValueError(f"Alumno {mat} no existe")
             grupo = await conn.fetchrow("SELECT id FROM academ.grupo WHERE nombre=$1", grp)
             if not grupo: raise ValueError(f"Grupo {grp} no existe")
@@ -615,20 +624,24 @@ async def importar_inscripciones(
     ins = omit = 0
     errores = []
     for i, fila in enumerate(filas, start=2):
-        mat = fila.get("numero_control") or fila.get("num_control") or fila.get("matricula")
+        mat = fila.get("no_control") or fila.get("numero_control") or fila.get("num_control") or fila.get("matricula")
         grp = fila.get("nombre_grupo") or fila.get("grupo") or fila.get("nombre")
         if not mat or not grp:
             errores.append({"fila": i, "error": "Campos faltantes"}); continue
         try:
-            alu = await conn.fetchrow("SELECT id FROM academ.alumno WHERE matricula=$1", mat)
+            alu = await conn.fetchrow("SELECT id FROM academ.alumno WHERE no_control=$1", mat)
             if not alu: raise ValueError("Alumno no existe")
-            grupo = await conn.fetchrow("SELECT id, periodo_id FROM academ.grupo WHERE nombre=$1", grp)
+            grupo = await conn.fetchrow("SELECT id FROM academ.grupo WHERE nombre=$1", grp)
             if not grupo: raise ValueError("Grupo no existe")
             async with conn.transaction():
                 ya_e = await conn.fetchval("SELECT 1 FROM academ.inscripcion WHERE alumno_id=$1 AND grupo_id=$2", alu["id"], grupo["id"])
                 if ya_e:
                     omit += 1; continue
-                await conn.execute("INSERT INTO academ.inscripcion (alumno_id, grupo_id, periodo_id) VALUES ($1,$2,$3)", alu["id"], grupo["id"], grupo["periodo_id"])
+                await conn.execute(
+                    "INSERT INTO academ.inscripcion (alumno_id, grupo_id) VALUES ($1,$2)",
+                    alu["id"],
+                    grupo["id"],
+                )
                 ins += 1
         except Exception as e: errores.append({"fila": i, "error": str(e)})
 

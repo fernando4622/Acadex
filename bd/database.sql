@@ -25,9 +25,6 @@ SET search_path = academ, public;
 -- SECCIÓN A: TABLAS DE CATÁLOGOS
 -- =============================================================================
 
-CREATE TYPE academ.tipo_actividad AS ENUM ('EXAMEN', 'TAREA', 'PROYECTO', 'PRACTICA_LAB', 'FORO', 'PARTICIPACION', 'ASISTENCIA');
-
-
 -- -------------------------------------
 -- A1. PERIODO ACADÉMICO
 -- -------------------------------------
@@ -37,32 +34,68 @@ CREATE TABLE periodo_academico (
     nombre       VARCHAR(100) NOT NULL,
     fecha_inicio DATE         NOT NULL,
     fecha_fin    DATE         NOT NULL,
-    activo       BOOLEAN      NOT NULL DEFAULT TRUE,
+    estado       VARCHAR(20)  NOT NULL DEFAULT 'proximo',
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_periodo_codigo  UNIQUE (codigo),
-    CONSTRAINT chk_periodo_fechas CHECK (fecha_fin > fecha_inicio)
+    CONSTRAINT chk_periodo_fechas CHECK (fecha_fin > fecha_inicio),
+    CONSTRAINT chk_periodo_estado CHECK (estado IN ('proximo','activo','cerrado'))
 );
 
 COMMENT ON TABLE  periodo_academico        IS 'Periodos académicos (semestres, cuatrimestres, etc.)';
 COMMENT ON COLUMN periodo_academico.codigo IS 'Clave única del periodo, ej: 2024-1, 2024A';
 
+CREATE UNIQUE INDEX uq_periodo_unico_activo
+    ON periodo_academico (estado)
+    WHERE estado = 'activo';
+
 -- -------------------------------------
--- A2. ALUMNO
+-- A2. CARRERA Y PLAN DE ESTUDIO
+-- -------------------------------------
+CREATE TABLE carrera (
+    id          SERIAL       PRIMARY KEY,
+    clave       VARCHAR(10)  NOT NULL UNIQUE,
+    nombre      VARCHAR(150) NOT NULL,
+    descripcion TEXT,
+    activo      BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE plan_estudio (
+    id         SERIAL    PRIMARY KEY,
+    carrera_id INT       NOT NULL REFERENCES carrera(id),
+    nombre     TEXT      NOT NULL,
+    vigente    BOOLEAN   DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE carrera IS
+    'Catálogo institucional de carreras o programas académicos.';
+COMMENT ON TABLE plan_estudio IS
+    'Versiones de planes de estudio pertenecientes a una carrera.';
+
+-- -------------------------------------
+-- A3. ALUMNO
 -- usuario_id se agrega en la migración 002_rbac.sql mediante ALTER TABLE
 -- -------------------------------------
 CREATE TABLE alumno (
     id           UUID         PRIMARY KEY DEFAULT uuidv7(),
-    matricula    VARCHAR(8)  NOT NULL,
+    no_control   VARCHAR(12)  NOT NULL,
     nombre       VARCHAR(100) NOT NULL,
     apellido_pat VARCHAR(100) NOT NULL,
     apellido_mat VARCHAR(100),
+    fecha_nacimiento DATE,
+    curp         VARCHAR(18),
     email        VARCHAR(150),
+    semestre_actual SMALLINT  NOT NULL DEFAULT 1,
+    plan_estudio_id INT       REFERENCES plan_estudio(id),
     activo       BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT uq_alumno_matricula UNIQUE (matricula),
+    CONSTRAINT uq_alumno_no_control UNIQUE (no_control),
+    CONSTRAINT uq_alumno_curp       UNIQUE (curp),
     CONSTRAINT uq_alumno_email     UNIQUE (email),
     CONSTRAINT chk_alumno_email    CHECK (
         email IS NULL OR
@@ -72,8 +105,17 @@ CREATE TABLE alumno (
 
 COMMENT ON TABLE alumno IS 'Catálogo de alumnos de la institución';
 
+-- Contador atómico anual para generar no_control con formato YY02SSSS.
+CREATE TABLE control_secuencial (
+    anio         SMALLINT PRIMARY KEY,
+    ultimo_valor INT      NOT NULL DEFAULT 0,
+
+    CONSTRAINT chk_control_secuencial_valor
+        CHECK (ultimo_valor BETWEEN 0 AND 9999)
+);
+
 -- -------------------------------------
--- A3. DOCENTE
+-- A4. DOCENTE
 -- usuario_id se agrega en la migración 002_rbac.sql mediante ALTER TABLE
 -- -------------------------------------
 CREATE TABLE docente (
@@ -97,20 +139,46 @@ CREATE TABLE docente (
 COMMENT ON TABLE docente IS 'Catálogo de docentes de la institución';
 
 -- -------------------------------------
--- A4. MATERIA
+-- A5. MATERIA
 -- -------------------------------------
 CREATE TABLE materia (
-    id         SERIAL       PRIMARY KEY,
-    clave      VARCHAR(8)  NOT NULL,
-    nombre     VARCHAR(200) NOT NULL,
-    creditos   SMALLINT     CHECK (creditos > 0),
-    activa     BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    id             SERIAL       PRIMARY KEY,
+    clave          VARCHAR(8)   NOT NULL,
+    nombre         VARCHAR(200) NOT NULL,
+    creditos       SMALLINT     CHECK (creditos > 0),
+    horas_teoria   INT          DEFAULT 0,
+    horas_practica INT          DEFAULT 0,
+    activa         BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_materia_clave UNIQUE (clave)
 );
 
 COMMENT ON TABLE materia IS 'Catálogo de materias/asignaturas';
+
+-- -------------------------------------
+-- A6. MATERIAS DE UN PLAN DE ESTUDIO
+-- -------------------------------------
+CREATE TABLE plan_materia (
+    id               SERIAL    PRIMARY KEY,
+    plan_estudio_id   INT       NOT NULL REFERENCES plan_estudio(id),
+    materia_id        INT       NOT NULL REFERENCES materia(id),
+    clave             TEXT      NOT NULL,
+    semestre          INT       NOT NULL,
+    orden             INT       DEFAULT 0,
+    obligatoria       BOOLEAN   DEFAULT TRUE,
+    creditos_override INT,
+    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_plan_materia_clave
+        UNIQUE (plan_estudio_id, clave),
+    CONSTRAINT uq_plan_materia_materia
+        UNIQUE (plan_estudio_id, materia_id)
+);
+
+COMMENT ON TABLE plan_materia IS
+    'Materias incluidas en un plan, con su clave, semestre y orden curricular.';
 
 -- =============================================================================
 -- SECCIÓN B: ESTRUCTURA ACADÉMICA
@@ -123,15 +191,15 @@ COMMENT ON TABLE materia IS 'Catálogo de materias/asignaturas';
 CREATE TABLE grupo (
     id                  UUID         PRIMARY KEY DEFAULT uuidv7(),
     nombre              VARCHAR(50)  NOT NULL,
-    materia_id          INT          NOT NULL REFERENCES materia(id),
+    plan_materia_id     INT          NOT NULL REFERENCES plan_materia(id),
     docente_id          UUID         NOT NULL REFERENCES docente(id),
     periodo_id          INT          NOT NULL REFERENCES periodo_academico(id),
     calificacion_maxima NUMERIC(6,3) NOT NULL DEFAULT 100.00,
     estado              VARCHAR(20)  NOT NULL DEFAULT 'ACTIVO',
+    letra_grupo         VARCHAR(5),
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT uq_grupo_nombre_materia_periodo UNIQUE (nombre, materia_id, periodo_id),
     CONSTRAINT chk_grupo_estado                CHECK (estado IN ('ACTIVO','PRECIERRE','FINALIZADO')),
     CONSTRAINT chk_grupo_cal_max               CHECK (calificacion_maxima > 0)
 );
@@ -194,27 +262,59 @@ COMMENT ON TABLE academ.unidad_plantilla IS
 CREATE INDEX IF NOT EXISTS idx_unidad_plantilla_materia ON academ.unidad_plantilla(materia_id);
 
 -- -------------------------------------
--- B3. ACTIVIDAD
+-- B3. TIPO DE ACTIVIDAD
+-- Catálogo extensible utilizado por las actividades evaluables.
+-- -------------------------------------
+CREATE TABLE tipo_actividad_catalogo (
+    id                          SERIAL       PRIMARY KEY,
+    nombre                      VARCHAR(100) NOT NULL,
+    descripcion                 TEXT,
+    valor_ponderacion_sugerido  NUMERIC(5,2),
+    activo                      BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at                  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at                  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_tipo_actividad_nombre UNIQUE (nombre)
+);
+
+INSERT INTO tipo_actividad_catalogo
+    (nombre, descripcion, valor_ponderacion_sugerido)
+VALUES
+    ('Examen',        'Evaluación escrita individual',          40.0),
+    ('Práctica',      'Práctica de laboratorio o taller',       20.0),
+    ('Proyecto',      'Proyecto integrador o de investigación', 30.0),
+    ('Tarea',         'Tarea o actividad extraclase',           10.0),
+    ('Exposición',    'Presentación oral o demostración',        20.0),
+    ('Participación', 'Participación durante la unidad',         10.0),
+    ('Investigación', 'Trabajo de investigación',                20.0),
+    ('Foro',          'Discusión académica guiada',              10.0),
+    ('Asistencia',    'Registro de asistencia',                  10.0);
+
+-- -------------------------------------
+-- B4. ACTIVIDAD
 -- Existe SOLO en el contexto de una unidad de un grupo.
 -- La ponderación pertenece a la actividad (que ya es contextual).
 -- -------------------------------------
 CREATE TABLE actividad (
-    id             SERIAL                 PRIMARY KEY,
-    unidad_id      INT                    NOT NULL REFERENCES unidad(id),
-    tipo           academ.tipo_actividad  NOT NULL,
+    id               SERIAL        PRIMARY KEY,
+    unidad_id        INT           NOT NULL REFERENCES unidad(id),
+    tipo_catalogo_id INT           REFERENCES tipo_actividad_catalogo(id) ON DELETE RESTRICT,
     descripcion    VARCHAR(200),
     ponderacion    NUMERIC(6,3)           NOT NULL,   -- 0.001 a 100.000
-    orden          SMALLINT               NOT NULL DEFAULT 1,
     fecha_apertura TIMESTAMPTZ,
     fecha_cierre   TIMESTAMPTZ,
     activa         BOOLEAN                NOT NULL DEFAULT TRUE,
+    publicada      BOOLEAN                NOT NULL DEFAULT FALSE,
     created_at     TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
 
     CONSTRAINT chk_actividad_ponderacion CHECK (ponderacion > 0 AND ponderacion <= 100)
 );
 
 -- Unicidad de tipo por unidad (solo para activas)
-CREATE UNIQUE INDEX uq_actividad_unidad_tipo ON actividad (unidad_id, tipo) WHERE activa = TRUE;
+CREATE UNIQUE INDEX uq_actividad_unidad_tipo_catalogo
+    ON actividad (unidad_id, tipo_catalogo_id)
+    WHERE activa = TRUE AND tipo_catalogo_id IS NOT NULL;
 
 COMMENT ON TABLE  actividad             IS 'Actividades evaluables. Solo existen dentro del contexto unidad→grupo.';
 COMMENT ON COLUMN actividad.ponderacion IS 'Porcentaje que representa esta actividad en la unidad (0 < p <= 100)';
@@ -385,11 +485,11 @@ COMMENT ON TABLE auditoria_log IS 'Log inmutable de todas las operaciones críti
 -- =============================================================================
 
 -- Búsqueda de alumnos por matrícula o nombre
-CREATE INDEX idx_alumno_matricula ON alumno(matricula);
+CREATE INDEX idx_alumno_no_control ON alumno(no_control);
 CREATE INDEX idx_alumno_nombre    ON alumno USING gin(to_tsvector('spanish', nombre || ' ' || apellido_pat));
 
 -- Grupos
-CREATE INDEX idx_grupo_materia ON grupo(materia_id);
+CREATE INDEX idx_grupo_plan_materia ON grupo(plan_materia_id);
 CREATE INDEX idx_grupo_docente ON grupo(docente_id);
 CREATE INDEX idx_grupo_periodo ON grupo(periodo_id);
 
@@ -451,6 +551,43 @@ BEGIN
         (p_tabla, p_registro_id, p_operacion, p_anterior, p_nuevo, p_usuario_app, p_motivo);
 END;
 $$;
+
+-- -----------------------------------------------------------------------------
+-- F02: Generar no_control institucional sin condiciones de carrera
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION academ.fn_generar_num_control(p_anio SMALLINT)
+RETURNS VARCHAR
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_siguiente INT;
+BEGIN
+    IF p_anio NOT BETWEEN 2000 AND 2099 THEN
+        RAISE EXCEPTION 'Año no válido para número de control: %', p_anio
+            USING ERRCODE = '22023';
+    END IF;
+
+    INSERT INTO academ.control_secuencial (anio, ultimo_valor)
+    VALUES (p_anio, 0)
+    ON CONFLICT (anio) DO NOTHING;
+
+    UPDATE academ.control_secuencial
+    SET ultimo_valor = ultimo_valor + 1
+    WHERE anio = p_anio
+      AND ultimo_valor < 9999
+    RETURNING ultimo_valor INTO v_siguiente;
+
+    IF v_siguiente IS NULL THEN
+        RAISE EXCEPTION 'Se agotaron los números de control para el año %', p_anio
+            USING ERRCODE = '22003';
+    END IF;
+
+    RETURN RIGHT(p_anio::TEXT, 2) || '02' || LPAD(v_siguiente::TEXT, 4, '0');
+END;
+$$;
+
+COMMENT ON FUNCTION academ.fn_generar_num_control(SMALLINT) IS
+    'Genera un no_control atómico con formato YY02SSSS para el año indicado.';
 
 -- -----------------------------------------------------------------------------
 -- F02: Calcular suma de ponderaciones activas de una unidad
@@ -700,7 +837,7 @@ BEGIN
     SELECT jsonb_build_object(
         'inscripcion_id',          i.id,
         'alumno',                  al.nombre || ' ' || al.apellido_pat,
-        'matricula',               al.matricula,
+        'no_control',              al.no_control,
         'grupo',                   g.nombre,
         'materia',                 m.nombre,
         'periodo',                 p.codigo,
@@ -751,7 +888,7 @@ $$;
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- TG01: updated_at automático en alumno, docente y grupo
+-- TG01: updated_at automático en tablas vigentes
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION academ.fn_tg_updated_at()
 RETURNS TRIGGER
@@ -773,6 +910,22 @@ CREATE TRIGGER tg_docente_updated_at
 
 CREATE TRIGGER tg_grupo_updated_at
     BEFORE UPDATE ON academ.grupo
+    FOR EACH ROW EXECUTE FUNCTION academ.fn_tg_updated_at();
+
+CREATE TRIGGER tg_periodo_updated_at
+    BEFORE UPDATE ON academ.periodo_academico
+    FOR EACH ROW EXECUTE FUNCTION academ.fn_tg_updated_at();
+
+CREATE TRIGGER tg_materia_updated_at
+    BEFORE UPDATE ON academ.materia
+    FOR EACH ROW EXECUTE FUNCTION academ.fn_tg_updated_at();
+
+CREATE TRIGGER tg_actividad_updated_at
+    BEFORE UPDATE ON academ.actividad
+    FOR EACH ROW EXECUTE FUNCTION academ.fn_tg_updated_at();
+
+CREATE TRIGGER tg_tipo_actividad_updated_at
+    BEFORE UPDATE ON academ.tipo_actividad_catalogo
     FOR EACH ROW EXECUTE FUNCTION academ.fn_tg_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -1190,6 +1343,72 @@ $$;
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
+-- SP00: Activar un periodo y cerrar de forma atómica el anterior
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE academ.sp_activar_periodo(
+    p_periodo_id INT,
+    p_usuario_id UUID
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_estado_objetivo VARCHAR(20);
+    v_activo_previo   INT;
+BEGIN
+    PERFORM pg_advisory_xact_lock(hashtext('acadex:activar_periodo'));
+
+    SELECT estado
+    INTO v_estado_objetivo
+    FROM academ.periodo_academico
+    WHERE id = p_periodo_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Periodo % no encontrado', p_periodo_id
+            USING ERRCODE = 'P0002';
+    END IF;
+
+    IF v_estado_objetivo = 'activo' THEN
+        RETURN;
+    END IF;
+
+    SELECT id
+    INTO v_activo_previo
+    FROM academ.periodo_academico
+    WHERE estado = 'activo'
+      AND id <> p_periodo_id
+    FOR UPDATE;
+
+    IF v_activo_previo IS NOT NULL THEN
+        UPDATE academ.periodo_academico
+        SET estado = 'cerrado', updated_at = NOW()
+        WHERE id = v_activo_previo;
+
+        PERFORM academ.fn_log_auditoria(
+            'periodo_academico', v_activo_previo::TEXT, 'UPDATE',
+            jsonb_build_object('estado', 'activo'),
+            jsonb_build_object(
+                'estado', 'cerrado',
+                'cerrado_por_activacion', p_periodo_id
+            ),
+            p_usuario_id, 'Cierre automático al activar nuevo periodo'
+        );
+    END IF;
+
+    UPDATE academ.periodo_academico
+    SET estado = 'activo', updated_at = NOW()
+    WHERE id = p_periodo_id;
+
+    PERFORM academ.fn_log_auditoria(
+        'periodo_academico', p_periodo_id::TEXT, 'UPDATE',
+        jsonb_build_object('estado', v_estado_objetivo),
+        jsonb_build_object('estado', 'activo'),
+        p_usuario_id, 'Periodo activado manualmente'
+    );
+END;
+$$;
+
+-- -----------------------------------------------------------------------------
 -- SP01: Cerrar una unidad
 --       1. Verifica que la suma de ponderaciones = 100%
 --       2. Verifica que todos los alumnos tienen resultado en todas las actividades
@@ -1487,14 +1706,14 @@ DECLARE
     v_omit    INT := 0;
 BEGIN
     -- La tabla temporal 'tmp_importacion_alumnos' debe existir con columnas:
-    -- fila_num, matricula, nombre, apellido_pat, apellido_mat, email
+    -- fila_num, no_control, nombre, apellido_pat, apellido_mat, email
     FOR v_fila IN SELECT * FROM tmp_importacion_alumnos ORDER BY fila_num
     LOOP
         BEGIN
-            INSERT INTO academ.alumno (matricula, nombre, apellido_pat, apellido_mat, email)
-            VALUES (v_fila.matricula, v_fila.nombre, v_fila.apellido_pat,
+            INSERT INTO academ.alumno (no_control, nombre, apellido_pat, apellido_mat, email)
+            VALUES (v_fila.no_control, v_fila.nombre, v_fila.apellido_pat,
                     v_fila.apellido_mat, NULLIF(v_fila.email,''))
-            ON CONFLICT (matricula) DO NOTHING;
+            ON CONFLICT (no_control) DO NOTHING;
 
             IF FOUND THEN v_ins  := v_ins  + 1;
             ELSE          v_omit := v_omit + 1;
@@ -1503,7 +1722,7 @@ BEGIN
         EXCEPTION WHEN OTHERS THEN
             v_errores := v_errores || jsonb_build_object(
                 'fila',      v_fila.fila_num,
-                'matricula', v_fila.matricula,
+                'no_control', v_fila.no_control,
                 'error',     SQLERRM
             );
         END;
@@ -1551,7 +1770,7 @@ COMMENT ON VIEW academ.v_suma_ponderaciones IS
 CREATE OR REPLACE VIEW academ.v_resultados_parciales AS
 SELECT
     i.id    AS inscripcion_id,
-    al.matricula,
+    al.no_control,
     al.nombre || ' ' || al.apellido_pat AS alumno,
     g.id    AS grupo_id,
     g.nombre AS grupo,
@@ -1578,14 +1797,15 @@ SELECT
 FROM academ.inscripcion i
 JOIN academ.alumno  al ON al.id = i.alumno_id
 JOIN academ.grupo   g  ON g.id  = i.grupo_id
-JOIN academ.materia m  ON m.id  = g.materia_id
+JOIN academ.plan_materia pm ON pm.id = g.plan_materia_id
+JOIN academ.materia m  ON m.id  = pm.materia_id
 JOIN academ.unidad  u  ON u.grupo_id = g.id
 LEFT JOIN academ.actividad             a  ON a.unidad_id = u.id AND a.activa = TRUE
 LEFT JOIN academ.resultado_actividad   ra ON ra.inscripcion_id = i.id AND ra.actividad_id = a.id
 LEFT JOIN academ.bonus_unidad          bu ON bu.inscripcion_id = i.id AND bu.unidad_id = u.id
 LEFT JOIN academ.resultado_unidad      ru ON ru.inscripcion_id = i.id AND ru.unidad_id = u.id
 WHERE i.estado = 'ACTIVA'
-GROUP BY i.id, al.matricula, al.nombre, al.apellido_pat, g.id, g.nombre,
+GROUP BY i.id, al.no_control, al.nombre, al.apellido_pat, g.id, g.nombre,
          m.nombre, u.id, u.numero, u.nombre, u.estado,
          bu.monto, bu.justificacion, g.calificacion_maxima, ru.resultado_final;
 
@@ -1600,7 +1820,7 @@ SELECT
     m.clave  AS clave_materia,
     p.codigo AS periodo,
     d.nombre || ' ' || d.apellido_pat AS docente,
-    al.matricula,
+    al.no_control,
     al.nombre || ' ' || al.apellido_pat AS alumno,
     i.id     AS inscripcion_id,
     ROUND(rm.promedio_base, 2)       AS promedio_base,
@@ -1643,7 +1863,7 @@ SELECT
     a.id    AS actividad_id,
     c.nombre  AS tipo_nombre,
     a.ponderacion,
-    al.matricula,
+    al.no_control,
     al.nombre || ' ' || al.apellido_pat AS alumno,
     i.id    AS inscripcion_id,
     ra.calificacion,
@@ -1695,7 +1915,8 @@ SELECT
     (SELECT resultado_final FROM academ.fn_calcular_resultado_materia(i.id)) AS resultado_final
 FROM academ.inscripcion i
 JOIN academ.grupo g ON g.id = i.grupo_id
-JOIN academ.materia m ON m.id = g.materia_id
+JOIN academ.plan_materia pm ON pm.id = g.plan_materia_id
+JOIN academ.materia m ON m.id = pm.materia_id
 JOIN academ.docente d ON d.id = g.docente_id;
 
 
@@ -1726,7 +1947,8 @@ WITH promedios_grupo AS (
         ROUND(STDDEV(rm.resultado_final)::NUMERIC, 2)   AS desviacion_estandar
     FROM academ.grupo              g
     JOIN academ.docente            d  ON d.id = g.docente_id
-    JOIN academ.materia            m  ON m.id = g.materia_id
+    JOIN academ.plan_materia       pm ON pm.id = g.plan_materia_id
+    JOIN academ.materia            m  ON m.id = pm.materia_id
     JOIN academ.periodo_academico  p  ON p.id = g.periodo_id
     JOIN academ.inscripcion        i  ON i.grupo_id = g.id AND i.estado = 'ACTIVA'
     LEFT JOIN academ.resultado_materia rm ON rm.inscripcion_id = i.id
@@ -1741,7 +1963,8 @@ promedio_materia_periodo AS (
     FROM academ.resultado_materia rm
     JOIN academ.inscripcion       i  ON i.id  = rm.inscripcion_id
     JOIN academ.grupo             g  ON g.id  = i.grupo_id
-    JOIN academ.materia           m  ON m.id  = g.materia_id
+    JOIN academ.plan_materia      pm ON pm.id = g.plan_materia_id
+    JOIN academ.materia           m  ON m.id  = pm.materia_id
     JOIN academ.periodo_academico p  ON p.id  = g.periodo_id
     GROUP BY m.id, p.codigo
 )
@@ -1793,7 +2016,8 @@ SELECT
         / NULLIF(COUNT(i.id), 0)
     , 1)                                                          AS eficiencia_terminal_pct
 FROM academ.grupo              g
-JOIN academ.materia            m  ON m.id = g.materia_id
+JOIN academ.plan_materia       pm ON pm.id = g.plan_materia_id
+JOIN academ.materia            m  ON m.id = pm.materia_id
 JOIN academ.docente            d  ON d.id = g.docente_id
 JOIN academ.periodo_academico  p  ON p.id = g.periodo_id
 JOIN academ.inscripcion        i  ON i.grupo_id = g.id AND i.estado = 'ACTIVA'
@@ -1825,7 +2049,7 @@ WITH resultados_grupo AS (
     WHERE i.estado = 'ACTIVA'
 )
 SELECT
-    al.matricula,
+    al.no_control,
     al.nombre || ' ' || al.apellido_pat                              AS alumno,
     m.nombre                                                          AS materia,
     g.nombre                                                          AS grupo,
@@ -1847,7 +2071,8 @@ FROM resultados_grupo rg
 JOIN academ.alumno            al ON al.id = rg.alumno_id
 JOIN academ.inscripcion       i  ON i.id  = rg.inscripcion_id
 JOIN academ.grupo             g  ON g.id  = rg.grupo_id
-JOIN academ.materia           m  ON m.id  = g.materia_id
+JOIN academ.plan_materia      pm ON pm.id = g.plan_materia_id
+JOIN academ.materia           m  ON m.id  = pm.materia_id
 JOIN academ.periodo_academico p  ON p.id  = g.periodo_id;
 
 COMMENT ON VIEW academ.v_analitica_alumno IS
@@ -1886,17 +2111,19 @@ SELECT
     END                                                 AS estatus_plazo,
     ra.calificacion,
     ra.estado_entrega,
-    ra.created_at                                       AS fecha_registro,
-    ra.updated_at                                       AS fecha_modificacion
+    ra.fecha_registro,
+    ra.fecha_modificacion
 FROM academ.inscripcion            i
 JOIN academ.grupo                  g  ON g.id = i.grupo_id
-JOIN academ.materia                m  ON g.materia_id = m.id
+JOIN academ.plan_materia           pm ON pm.id = g.plan_materia_id
+JOIN academ.materia                m  ON pm.materia_id = m.id
 JOIN academ.unidad                 u  ON u.grupo_id = g.id
 JOIN academ.actividad              a  ON a.unidad_id = u.id AND a.activa = TRUE
 LEFT JOIN academ.tipo_actividad_catalogo c ON a.tipo_catalogo_id = c.id
 LEFT JOIN academ.resultado_actividad ra
        ON ra.inscripcion_id = i.id AND ra.actividad_id = a.id
 WHERE i.estado = 'ACTIVA'
+  AND a.publicada = TRUE
 ORDER BY u.numero, a.ponderacion DESC;
 
 COMMENT ON VIEW academ.v_actividades_alumno IS
@@ -2388,8 +2615,8 @@ CREATE TRIGGER tg_bonus_materia_bloquear_finalizado
 -- SECCIÓN N: DATOS DE CONFIGURACIÓN INICIAL
 -- =============================================================================
 
-INSERT INTO academ.periodo_academico (codigo, nombre, fecha_inicio, fecha_fin)
-VALUES ('2024-1', 'Enero-Junio 2024', '2024-01-15', '2024-06-30');
+INSERT INTO academ.periodo_academico (codigo, nombre, fecha_inicio, fecha_fin, estado)
+VALUES ('2024-1', 'Enero-Junio 2024', '2024-01-15', '2024-06-30', 'cerrado');
 
 INSERT INTO academ.docente (num_empleado, nombre, apellido_pat, apellido_mat, email)
 VALUES ('D001', 'Carlos', 'Martínez', 'García', 'c.martinez@escuela.edu');
@@ -2399,13 +2626,39 @@ VALUES
     ('ISC-301', 'Programación Orientada a Objetos', 6),
     ('ISC-401', 'Bases de Datos',                  5);
 
-INSERT INTO academ.alumno (matricula, nombre, apellido_pat, apellido_mat)
+INSERT INTO academ.carrera (clave, nombre)
+VALUES ('ISC', 'Ingeniería en Sistemas Computacionales');
+
+INSERT INTO academ.plan_estudio (carrera_id, nombre, vigente)
+SELECT id, 'Plan de demostración', TRUE
+FROM academ.carrera
+WHERE clave = 'ISC';
+
+INSERT INTO academ.plan_materia
+    (plan_estudio_id, materia_id, clave, semestre, orden, obligatoria)
+SELECT pe.id, m.id, m.clave,
+       CASE m.clave WHEN 'ISC-301' THEN 3 ELSE 4 END,
+       1, TRUE
+FROM academ.plan_estudio pe
+JOIN academ.carrera c ON c.id = pe.carrera_id AND c.clave = 'ISC'
+JOIN academ.materia m ON m.clave IN ('ISC-301', 'ISC-401')
+WHERE pe.nombre = 'Plan de demostración';
+
+INSERT INTO academ.alumno (no_control, nombre, apellido_pat, apellido_mat)
 VALUES
     ('A001', 'Juan',   'García',    'López'),
     ('A002', 'María',  'Hernández', 'Ruiz'),
     ('A003', 'Pedro',  'Torres',    'Sánchez'),
     ('A004', 'Laura',  'Jiménez',   'Flores'),
     ('A005', 'Carlos', 'Ramírez',   'Cruz');
+
+UPDATE academ.alumno
+SET plan_estudio_id = (
+    SELECT pe.id
+    FROM academ.plan_estudio pe
+    JOIN academ.carrera c ON c.id = pe.carrera_id
+    WHERE c.clave = 'ISC' AND pe.nombre = 'Plan de demostración'
+);
 
 -- =============================================================================
 -- FIN DEL SCRIPT
@@ -2619,7 +2872,7 @@ SELECT
     academ.fn_roles_usuario(u.id)              AS roles,
     al.id                                       AS alumno_id,
     al.nombre || ' ' || al.apellido_pat         AS alumno_nombre,
-    al.matricula,
+    al.no_control,
     d.id                                        AS docente_id,
     d.nombre  || ' ' || d.apellido_pat          AS docente_nombre,
     d.num_empleado
@@ -2696,8 +2949,11 @@ DECLARE
     -- Catálogos existentes desde schemav3.sql
     v_periodo_id    INT;
     v_docente_id    UUID;
+    v_usuario_docente_id UUID;
     v_poo_id        INT;
     v_bd_id         INT;
+    v_poo_pm_id     INT;
+    v_bd_pm_id      INT;
     v_garcia_id     UUID;
     v_hernandez_id  UUID;
     v_torres_id     UUID;
@@ -2765,30 +3021,56 @@ SELECT id INTO v_periodo_id   FROM academ.periodo_academico WHERE codigo = '2024
 SELECT id INTO v_docente_id   FROM academ.docente            WHERE num_empleado = 'D001';
 SELECT id INTO v_poo_id       FROM academ.materia            WHERE clave = 'ISC-301';
 SELECT id INTO v_bd_id        FROM academ.materia            WHERE clave = 'ISC-401';
-SELECT id INTO v_garcia_id    FROM academ.alumno             WHERE matricula = 'A001';
-SELECT id INTO v_hernandez_id FROM academ.alumno             WHERE matricula = 'A002';
-SELECT id INTO v_torres_id    FROM academ.alumno             WHERE matricula = 'A003';
-SELECT id INTO v_jimenez_id   FROM academ.alumno             WHERE matricula = 'A004';
-SELECT id INTO v_ramirez_id   FROM academ.alumno             WHERE matricula = 'A005';
+SELECT pm.id INTO v_poo_pm_id
+FROM academ.plan_materia pm
+JOIN academ.materia m ON m.id = pm.materia_id
+WHERE m.clave = 'ISC-301';
+SELECT pm.id INTO v_bd_pm_id
+FROM academ.plan_materia pm
+JOIN academ.materia m ON m.id = pm.materia_id
+WHERE m.clave = 'ISC-401';
+SELECT id INTO v_garcia_id    FROM academ.alumno             WHERE no_control = 'A001';
+SELECT id INTO v_hernandez_id FROM academ.alumno             WHERE no_control = 'A002';
+SELECT id INTO v_torres_id    FROM academ.alumno             WHERE no_control = 'A003';
+SELECT id INTO v_jimenez_id   FROM academ.alumno             WHERE no_control = 'A004';
+SELECT id INTO v_ramirez_id   FROM academ.alumno             WHERE no_control = 'A005';
 
 RAISE NOTICE 'Catálogos cargados.';
 
--- Las cuentas de acceso para datos de demostración deben crearse explícitamente.
--- El esquema no distribuye contraseñas conocidas para docentes ni administradores.
+-- Actor interno deshabilitado para ejecutar el flujo demo con la misma autorización
+-- que usa la API. Su contraseña es aleatoria, no se muestra y no puede reutilizarse.
+INSERT INTO academ.usuario (email, password_hash, activo)
+VALUES (
+    'docente.demo@acadex.invalid',
+    crypt(encode(gen_random_bytes(32), 'hex'), gen_salt('bf', 12)),
+    FALSE
+)
+RETURNING id INTO v_usuario_docente_id;
+
+UPDATE academ.docente
+SET usuario_id = v_usuario_docente_id
+WHERE id = v_docente_id;
+
+INSERT INTO academ.usuario_rol (usuario_id, rol_id)
+SELECT v_usuario_docente_id, id
+FROM academ.rol
+WHERE nombre = 'DOCENTE';
+
+PERFORM set_config('app.usuario_id', v_usuario_docente_id::TEXT, TRUE);
 
 -- ─── BLOQUE 3: Grupos ─────────────────────────────────────────────────────────
 
-INSERT INTO academ.grupo (nombre, materia_id, docente_id, periodo_id, calificacion_maxima)
-VALUES ('POO-A', v_poo_id, v_docente_id, v_periodo_id, 100) RETURNING id INTO v_poo_a_id;
+INSERT INTO academ.grupo (nombre, plan_materia_id, docente_id, periodo_id, calificacion_maxima)
+VALUES ('POO-A', v_poo_pm_id, v_docente_id, v_periodo_id, 100) RETURNING id INTO v_poo_a_id;
 
-INSERT INTO academ.grupo (nombre, materia_id, docente_id, periodo_id, calificacion_maxima)
-VALUES ('POO-B', v_poo_id, v_docente_id, v_periodo_id, 100) RETURNING id INTO v_poo_b_id;
+INSERT INTO academ.grupo (nombre, plan_materia_id, docente_id, periodo_id, calificacion_maxima)
+VALUES ('POO-B', v_poo_pm_id, v_docente_id, v_periodo_id, 100) RETURNING id INTO v_poo_b_id;
 
-INSERT INTO academ.grupo (nombre, materia_id, docente_id, periodo_id, calificacion_maxima)
-VALUES ('BD-A',  v_bd_id,  v_docente_id, v_periodo_id, 100) RETURNING id INTO v_bd_a_id;
+INSERT INTO academ.grupo (nombre, plan_materia_id, docente_id, periodo_id, calificacion_maxima)
+VALUES ('BD-A',  v_bd_pm_id,  v_docente_id, v_periodo_id, 100) RETURNING id INTO v_bd_a_id;
 
-INSERT INTO academ.grupo (nombre, materia_id, docente_id, periodo_id, calificacion_maxima)
-VALUES ('BD-B',  v_bd_id,  v_docente_id, v_periodo_id, 100) RETURNING id INTO v_bd_b_id;
+INSERT INTO academ.grupo (nombre, plan_materia_id, docente_id, periodo_id, calificacion_maxima)
+VALUES ('BD-B',  v_bd_pm_id,  v_docente_id, v_periodo_id, 100) RETURNING id INTO v_bd_b_id;
 
 -- ─── BLOQUE 4: Inscripciones ──────────────────────────────────────────────────
 
@@ -2825,27 +3107,34 @@ INSERT INTO academ.unidad (grupo_id, numero, nombre) VALUES (v_bd_b_id, 3, 'Dise
 
 -- ─── BLOQUE 6: Actividades POO-A ─────────────────────────────────────────────
 
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u1, 'EXAMEN',   50, 1) RETURNING id INTO v_a_poo_a_u1_examen;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u1, 'PRACTICA_LAB', 35, 2) RETURNING id INTO v_a_poo_a_u1_practica;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u1, 'TAREA', 15, 3) RETURNING id INTO v_a_poo_a_u1_tarea;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u1, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Examen'), 50) RETURNING id INTO v_a_poo_a_u1_examen;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u1, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Práctica'), 35) RETURNING id INTO v_a_poo_a_u1_practica;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u1, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Tarea'), 15) RETURNING id INTO v_a_poo_a_u1_tarea;
 
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u2, 'EXAMEN',   60, 1) RETURNING id INTO v_a_poo_a_u2_examen;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u2, 'PROYECTO', 40, 2) RETURNING id INTO v_a_poo_a_u2_proyecto;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u2, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Examen'), 60) RETURNING id INTO v_a_poo_a_u2_examen;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u2, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Proyecto'), 40) RETURNING id INTO v_a_poo_a_u2_proyecto;
 
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u3, 'PROYECTO', 70, 1) RETURNING id INTO v_a_poo_a_u3_proyecto;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_a_u3, 'PARTICIPACION', 30, 2) RETURNING id INTO v_a_poo_a_u3_present;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u3, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Proyecto'), 70) RETURNING id INTO v_a_poo_a_u3_proyecto;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_a_u3, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Participación'), 30) RETURNING id INTO v_a_poo_a_u3_present;
 
 -- ─── BLOQUE 7: Actividades POO-B (Estandarizadas: un tipo por unidad) ──────────
 -- U1: Se unifican tareas (30+30+30) en una sola de 90%
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_b_u1, 'TAREA',         90, 1) RETURNING id INTO v_a_poo_b_u1_t1;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_b_u1, 'PARTICIPACION', 10, 2) RETURNING id INTO v_a_poo_b_u1_part;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u1, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Tarea'), 90) RETURNING id INTO v_a_poo_b_u1_t1;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u1, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Participación'), 10) RETURNING id INTO v_a_poo_b_u1_part;
 
 -- U2: Se unifican exámenes (40+25) en uno de 65%
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_b_u2, 'EXAMEN', 65, 1) RETURNING id INTO v_a_poo_b_u2_examen;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_b_u2, 'TAREA',  35, 2) RETURNING id INTO v_a_poo_b_u2_mapa;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u2, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Examen'), 65) RETURNING id INTO v_a_poo_b_u2_examen;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u2, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Tarea'), 35) RETURNING id INTO v_a_poo_b_u2_mapa;
 
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_b_u3, 'PROYECTO', 60, 1) RETURNING id INTO v_a_poo_b_u3_proyecto;
-INSERT INTO academ.actividad (unidad_id, tipo, ponderacion, orden) VALUES (v_poo_b_u3, 'PARTICIPACION', 40, 2) RETURNING id INTO v_a_poo_b_u3_defensa;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u3, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Proyecto'), 60) RETURNING id INTO v_a_poo_b_u3_proyecto;
+INSERT INTO academ.actividad (unidad_id, tipo_catalogo_id, ponderacion) VALUES (v_poo_b_u3, (SELECT id FROM academ.tipo_actividad_catalogo WHERE nombre = 'Participación'), 40) RETURNING id INTO v_a_poo_b_u3_defensa;
+
+-- El conjunto demo representa actividades que ya eran visibles antes del contrato de borradores.
+UPDATE academ.actividad a
+SET publicada = TRUE
+FROM academ.unidad u
+WHERE u.id = a.unidad_id
+  AND u.grupo_id IN (v_poo_a_id, v_poo_b_id);
 
 -- Verificar ponderaciones
 PERFORM 1 FROM academ.v_suma_ponderaciones
@@ -2972,7 +3261,7 @@ JOIN academ.unidad      u  ON u.id  = ru.unidad_id
 JOIN academ.inscripcion i  ON i.id  = ru.inscripcion_id
 JOIN academ.alumno      al ON al.id = i.alumno_id
 JOIN academ.grupo       g  ON g.id  = i.grupo_id
-WHERE al.matricula = 'A001' AND g.nombre = 'POO-A'
+WHERE al.no_control = 'A001' AND g.nombre = 'POO-A'
 ORDER BY u.numero;
 
 SELECT '=== Q2: RESULTADOS FINALES POO-A ===' AS info;
@@ -2982,12 +3271,13 @@ FROM academ.v_resultados_finales
 WHERE grupo = 'POO-A' ORDER BY alumno;
 
 SELECT '=== Q3: HETEROGENEIDAD POO-A vs POO-B ===' AS info;
-SELECT g.nombre AS grupo, u.numero, a.orden, a.tipo::TEXT AS actividad, a.ponderacion
+SELECT g.nombre AS grupo, u.numero, c.nombre AS actividad, a.ponderacion
 FROM academ.actividad a
 JOIN academ.unidad u ON u.id = a.unidad_id
 JOIN academ.grupo  g ON g.id = u.grupo_id
+LEFT JOIN academ.tipo_actividad_catalogo c ON c.id = a.tipo_catalogo_id
 WHERE g.nombre IN ('POO-A','POO-B') AND a.activa = TRUE
-ORDER BY g.nombre, u.numero, a.orden;
+ORDER BY g.nombre, u.numero, a.id;
 
 SELECT '=== Q4: IMPACTO BONUS — Hernández U1 ===' AS info;
 SELECT al.nombre || ' ' || al.apellido_pat AS alumno,
@@ -2998,12 +3288,12 @@ JOIN academ.unidad      u  ON u.id  = ru.unidad_id
 JOIN academ.inscripcion i  ON i.id  = ru.inscripcion_id
 JOIN academ.alumno      al ON al.id = i.alumno_id
 JOIN academ.grupo       g  ON g.id  = i.grupo_id
-WHERE al.matricula = 'A002' AND g.nombre = 'POO-A' AND u.numero = 1;
+WHERE al.no_control = 'A002' AND g.nombre = 'POO-A' AND u.numero = 1;
 
 SELECT '=== Q5: OVERRIDE — Torres POO-A ===' AS info;
 SELECT alumno, resultado_calculado, resultado_override, resultado_final, estatus
 FROM academ.v_resultados_finales
-WHERE matricula = 'A003' AND grupo = 'POO-A';
+WHERE no_control = 'A003' AND grupo = 'POO-A';
 
 SELECT '=== Q6: INTEGRIDAD DE PONDERACIONES ===' AS info;
 SELECT grupo_nombre, unidad_nombre, suma_ponderaciones, estructura_completa
@@ -3016,12 +3306,13 @@ BEGIN
     SELECT i.id INTO v_insc FROM academ.inscripcion i
     JOIN academ.alumno al ON al.id=i.alumno_id
     JOIN academ.grupo  g  ON g.id=i.grupo_id
-    WHERE al.matricula='A004' AND g.nombre='POO-B';
+    WHERE al.no_control='A004' AND g.nombre='POO-B';
 
     SELECT a.id INTO v_act FROM academ.actividad a
     JOIN academ.unidad u ON u.id=a.unidad_id
     JOIN academ.grupo  g ON g.id=u.grupo_id
-    WHERE g.nombre='POO-A' AND u.numero=1 AND a.tipo='EXAMEN';
+    JOIN academ.tipo_actividad_catalogo c ON c.id=a.tipo_catalogo_id
+    WHERE g.nombre='POO-A' AND u.numero=1 AND c.nombre='Examen';
 
     SELECT id INTO v_doc FROM academ.docente WHERE num_empleado='D001';
 

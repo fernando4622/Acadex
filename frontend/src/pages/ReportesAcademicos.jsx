@@ -123,8 +123,8 @@ function MejoresAlumnosTable({ data }) {
       </thead>
       <tbody className="divide-y divide-slate-50">
         {data.map((r, i) => (
-          <tr key={r.num_control} className="hover:bg-slate-50/50 transition-colors">
-            <td className="px-6 py-4 font-mono font-bold text-slate-600">{r.num_control}</td>
+          <tr key={r.no_control} className="hover:bg-slate-50/50 transition-colors">
+            <td className="px-6 py-4 font-mono font-bold text-slate-600">{r.no_control}</td>
             <td className="px-6 py-4 font-semibold text-slate-800 flex items-center gap-2">
               {i < 3 && <Trophy size={14} className={i === 0 ? 'text-yellow-500' : i === 1 ? 'text-slate-400' : 'text-amber-600'} />}
               {r.alumno}

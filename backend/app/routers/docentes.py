@@ -122,7 +122,7 @@ async def obtener_kardex_propio(
             p.id as periodo_id,
             p.nombre as periodo_nombre,
             p.codigo as periodo_codigo,
-            p.activo as periodo_activo,
+            (p.estado = 'activo') as periodo_activo,
             COUNT(i.id) FILTER (WHERE i.estado = 'ACTIVA') as total_alumnos,
             ROUND(AVG(rm.resultado_final)::numeric, 2) as promedio_grupo,
             COUNT(rm.id) FILTER (WHERE rm.resultado_final >= 70) as aprobados
@@ -134,7 +134,7 @@ async def obtener_kardex_propio(
         LEFT JOIN academ.resultado_materia rm ON rm.inscripcion_id = i.id AND i.estado = 'ACTIVA'
         WHERE g.docente_id = $1
         GROUP BY g.id, g.nombre, g.estado, g.letra_grupo, m.nombre,
-                 p.id, p.nombre, p.codigo, p.activo, p.fecha_inicio
+                 p.id, p.nombre, p.codigo, p.estado, p.fecha_inicio
         ORDER BY p.fecha_inicio DESC, g.nombre""",
         docente_id,
     )
@@ -335,7 +335,7 @@ async def grupos_del_docente(
            JOIN academ.periodo_academico p ON p.id = g.periodo_id
            LEFT JOIN academ.inscripcion i ON i.grupo_id = g.id AND i.estado = 'ACTIVA'
            WHERE g.docente_id = $1
-           GROUP BY g.id, g.nombre, g.letra_grupo, g.estado, m.nombre, p.codigo, p.activo, p.fecha_inicio
+           GROUP BY g.id, g.nombre, g.letra_grupo, g.estado, m.nombre, p.codigo, p.estado, p.fecha_inicio
            ORDER BY p.fecha_inicio DESC, g.nombre""",
         docente_id,
     )

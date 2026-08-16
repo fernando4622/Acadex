@@ -6,9 +6,6 @@ class MateriaCreate(BaseModel):
     clave: str
     creditos: Optional[int] = None
     unidades: Optional[str] = None
-    """IDs de carreras para `materia_carrera`. En POST debe ser lista no vacía.
-    En PUT: omitir o `None` conserva vínculos; enviar lista (vacía incluida) sincroniza."""
-    carreras_ids: Optional[List[int]] = None
 
 class MateriaResponse(BaseModel):
     id: int

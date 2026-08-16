@@ -10,8 +10,7 @@ class InscripcionResponse(BaseModel):
     id:               UUID
     alumno_id:        UUID
     grupo_id:         UUID
-    periodo_id:       int
     fecha_inscripcion: date
     estado:           str
     alumno_nombre:    str | None = None
-    alumno_matricula: str | None = None
+    alumno_no_control: str | None = None

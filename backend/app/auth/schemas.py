@@ -16,7 +16,7 @@ class TokenResponse(BaseModel):
 
 
 class UsuarioCreate(BaseModel):
-    username:   str           # num_control para alumnos; email o num_empleado para otros roles
+    username:   str           # no_control para alumnos; email o num_empleado para otros roles
     password:   str
     roles:      list[str]     # uno o varios roles al crear
     alumno_id:  UUID | None   = None
