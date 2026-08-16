@@ -243,7 +243,7 @@ class MigrationDiscoveryTests(unittest.TestCase):
         self.assertIn("RENAME TO fn_generar_no_control", migration)
         self.assertNotIn("DROP FUNCTION", migration)
 
-    def test_supported_backend_calls_the_current_control_generator(self):
+    def test_supported_sequence_renames_the_bootstrap_control_generator(self):
         project_root = Path(__file__).resolve().parents[2]
         backend = (
             project_root / "backend" / "app" / "routers" / "alumnos.py"
@@ -251,11 +251,17 @@ class MigrationDiscoveryTests(unittest.TestCase):
         bootstrap = (
             project_root / "bd" / "database.sql"
         ).read_text(encoding="utf-8")
+        migration = (
+            project_root
+            / "backend"
+            / "migrations"
+            / "012_renombrar_generador_no_control.sql"
+        ).read_text(encoding="utf-8")
 
         self.assertIn("fn_generar_no_control", backend)
         self.assertNotIn("fn_generar_num_control", backend)
-        self.assertIn("FUNCTION academ.fn_generar_no_control", bootstrap)
-        self.assertNotIn("FUNCTION academ.fn_generar_num_control", bootstrap)
+        self.assertIn("FUNCTION academ.fn_generar_num_control", bootstrap)
+        self.assertIn("RENAME TO fn_generar_no_control", migration)
 
 
 if __name__ == "__main__":

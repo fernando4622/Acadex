@@ -2,7 +2,7 @@
 
 ## Fuente de verdad actual
 
-- `bd/database.sql` crea una instalación nueva con el esquema completo vigente.
+- `bd/database.sql` inicializa el esquema base; las migraciones soportadas lo llevan al contrato vigente.
 - Los archivos SQL de este directorio actualizan instalaciones existentes.
 - `legacy/` contiene scripts históricos y nunca debe ejecutarse automáticamente.
 
@@ -91,7 +91,9 @@ que exponían las vistas de resultados. Los routers consultan ese nombre vigente
 
 La migración `012_renombrar_generador_no_control.sql` adopta
 `fn_generar_no_control(SMALLINT)` como nombre vigente. Renombra la función existente para conservar
-su identidad, permisos y dependencias; en instalaciones nuevas es una comprobación repetible.
+su identidad, permisos y dependencias. El bootstrap conserva el nombre predecesor durante la
+instalación para que la misma secuencia ordenada produzca el estado final tanto desde cero como al
+actualizar una base existente.
 
 ## Inventario de scripts SQL heredados
 
@@ -114,6 +116,15 @@ El comando siguiente compara el contrato mínimo utilizado por el backend con un
 ```powershell
 python -m scripts.verificar_esquema
 ```
+
+El comando siguiente ejecuta consultas de lectura representativas sobre inscripciones, captura de
+calificaciones, resultados, actividades publicadas y cálculo dinámico:
+
+```powershell
+python -m scripts.verificar_consultas_criticas
+```
+
+La comprobación completa se ejecuta dentro de una transacción de solo lectura y no altera datos.
 
 Para comprobar estáticamente lo que producirían `bd/database.sql` y las migraciones soportadas:
 

@@ -139,6 +139,26 @@ class SchemaContractTests(unittest.TestCase):
         self.assertEqual(estado.columnas["alumno"], {"id"})
         self.assertEqual(estado.columnas["materia"], {"id"})
 
+    def test_extracts_the_final_name_of_a_renamed_routine(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "renombrar.sql"
+            source.write_text(
+                """
+                CREATE FUNCTION academ.fn_anterior() RETURNS INT
+                LANGUAGE SQL AS $$ SELECT 1 $$;
+                ALTER FUNCTION academ.fn_anterior()
+                    RENAME TO fn_vigente;
+                """,
+                encoding="utf-8",
+            )
+
+            estado = leer_estado_fuentes_sql([source])
+
+        self.assertIn("fn_vigente", estado.rutinas)
+        self.assertNotIn("fn_anterior", estado.rutinas)
+
     def test_current_bootstrap_drift_is_explicit(self):
         fuentes = fuentes_bootstrap(
             PROJECT_ROOT / "bd" / "database.sql",

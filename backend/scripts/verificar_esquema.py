@@ -140,6 +140,13 @@ PATRONES_OBJETOS = {
     ),
 }
 
+PATRON_RENOMBRE_RUTINA = re.compile(
+    r"\bALTER\s+(?:FUNCTION|PROCEDURE)\s+(?:academ\.)?"
+    r"([a-z_][a-z0-9_]*)\s*\([^;]*?\)\s+RENAME\s+TO\s+"
+    r"([a-z_][a-z0-9_]*)",
+    re.IGNORECASE,
+)
+
 
 def _sin_comentarios_sql(contenido: str) -> str:
     sin_bloques = re.sub(r"/\*.*?\*/", "", contenido, flags=re.DOTALL)
@@ -232,6 +239,9 @@ def leer_estado_fuentes_sql(fuentes: list[Path]) -> EstadoEsquema:
         categoria: {nombre.lower() for nombre in patron.findall(contenido)}
         for categoria, patron in PATRONES_OBJETOS.items()
     }
+    for nombre_anterior, nombre_vigente in PATRON_RENOMBRE_RUTINA.findall(contenido):
+        encontrados["rutinas"].discard(nombre_anterior.lower())
+        encontrados["rutinas"].add(nombre_vigente.lower())
     columnas = _columnas_create_table(contenido)
     for tabla, nombres in _columnas_alter_table(contenido).items():
         columnas.setdefault(tabla, set()).update(nombres)
