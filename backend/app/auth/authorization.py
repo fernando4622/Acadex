@@ -36,6 +36,15 @@ async def assert_can_read_group_results(
     grupo_id: UUID,
 ) -> None:
     """Allow administrators and the group's current teacher to read its roster results."""
+    await assert_can_manage_group(conn, user, grupo_id)
+
+
+async def assert_can_manage_group(
+    conn: Connection,
+    user: dict,
+    grupo_id: UUID,
+) -> UUID:
+    """Authorize against the teacher currently assigned to the group in PostgreSQL."""
     group = await conn.fetchrow(
         "SELECT docente_id FROM academ.grupo WHERE id=$1",
         grupo_id,
@@ -44,12 +53,11 @@ async def assert_can_read_group_results(
         raise _not_found()
 
     if _has_role(user, "ADMIN"):
-        return
+        return group["docente_id"]
 
     if _has_role(user, "DOCENTE") and str(user.get("id_entidad")) == str(group["docente_id"]):
-        return
+        return group["docente_id"]
 
-    # Group results expose the complete roster, so students never receive access.
     raise _forbidden()
 
 
@@ -103,20 +111,7 @@ async def authorize_group_mutation(
     unidad_id: int | None = None,
 ) -> UUID:
     """Validate the actor and every resource before an academic mutation starts."""
-    group = await conn.fetchrow(
-        "SELECT docente_id FROM academ.grupo WHERE id=$1",
-        grupo_id,
-    )
-    if not group:
-        raise _not_found()
-
-    teacher_id = group["docente_id"]
-    if not _has_role(user, "ADMIN"):
-        if not (
-            _has_role(user, "DOCENTE")
-            and str(user.get("id_entidad")) == str(teacher_id)
-        ):
-            raise _forbidden()
+    teacher_id = await assert_can_manage_group(conn, user, grupo_id)
 
     unique_enrollment_ids = list(dict.fromkeys(enrollment_ids))
     matching_rows = await conn.fetch(

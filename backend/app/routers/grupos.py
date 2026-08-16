@@ -6,7 +6,8 @@ import csv
 import io
 from uuid import UUID
 from app.database import get_conn
-from app.middleware.auth import require_admin, require_docente_o_admin, get_current_user, assert_docente_en_grupo, is_admin, is_docente, is_alumno
+from app.middleware.auth import require_admin, require_docente_o_admin, get_current_user, is_admin, is_docente, is_alumno
+from app.auth.authorization import assert_can_manage_group
 from app.schemas.grupo import GrupoCreate, GrupoResponse
 from app.errors import handle_pg_error
 from app.helpers.plan_materia import resolver_grupo_desde_clave_materia
@@ -183,9 +184,8 @@ async def alumnos_del_grupo(
     conn: Connection = Depends(get_conn),
     user: dict = Depends(require_docente_o_admin),
 ):
-    print(f"DEBUG: Accediendo a alumnos del grupo {grupo_id}")
+    await assert_can_manage_group(conn, user, grupo_id)
     try:
-        assert_docente_en_grupo(user, grupo_id)
         rows = await conn.fetch(
             """SELECT i.id AS inscripcion_id, i.estado AS estado_inscripcion,
                       a.id AS alumno_id, a.no_control,
@@ -207,10 +207,7 @@ async def finalizar_materia(
     conn: Connection = Depends(get_conn),
     user: dict = Depends(require_docente_o_admin),
 ):
-    assert_docente_en_grupo(user, grupo_id)
-    docente_id = user["id_entidad"] if is_docente(user) else (
-        await conn.fetchval("SELECT docente_id FROM academ.grupo WHERE id=$1", grupo_id)
-    )
+    docente_id = await assert_can_manage_group(conn, user, grupo_id)
     try:
         await conn.execute("CALL academ.sp_finalizar_materia($1,$2)", grupo_id, docente_id)
     except asyncpg.PostgresError as e:
@@ -225,10 +222,7 @@ async def pre_cerrar_materia(
     user: dict = Depends(require_docente_o_admin),
 ):
     """Transiciona el grupo de ACTIVO a PRE-CIERRE para permitir arbitraje (Bonus/Override)."""
-    assert_docente_en_grupo(user, grupo_id)
-    docente_id = user["id_entidad"] if is_docente(user) else (
-        await conn.fetchval("SELECT docente_id FROM academ.grupo WHERE id=$1", grupo_id)
-    )
+    docente_id = await assert_can_manage_group(conn, user, grupo_id)
     try:
         await conn.execute("CALL academ.sp_pre_cerrar_materia($1, $2)", grupo_id, docente_id)
     except asyncpg.PostgresError as e:

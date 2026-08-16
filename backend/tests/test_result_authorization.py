@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import HTTPException
 
 from app.auth.authorization import (
+    assert_can_manage_group,
     assert_can_read_enrollment_unit,
     assert_can_read_group_results,
 )
@@ -33,6 +34,34 @@ def user(*roles, entity_id=None):
         "roles": list(roles),
         "id_entidad": str(entity_id) if entity_id is not None else None,
     }
+
+
+class CurrentGroupOwnershipTests(unittest.IsolatedAsyncioTestCase):
+    async def test_current_teacher_is_allowed_without_token_group_snapshot(self):
+        conn = FakeConnection({"docente_id": TEACHER_ID})
+        current_user = user("DOCENTE", entity_id=TEACHER_ID)
+        current_user["grupos"] = []
+
+        teacher_id = await assert_can_manage_group(conn, current_user, GROUP_ID)
+
+        self.assertEqual(teacher_id, TEACHER_ID)
+
+    async def test_reassigned_teacher_is_denied_despite_stale_token_group(self):
+        conn = FakeConnection({"docente_id": OTHER_TEACHER_ID})
+        stale_user = user("DOCENTE", entity_id=TEACHER_ID)
+        stale_user["grupos"] = [str(GROUP_ID)]
+
+        with self.assertRaises(HTTPException) as raised:
+            await assert_can_manage_group(conn, stale_user, GROUP_ID)
+
+        self.assertEqual(raised.exception.status_code, 403)
+
+    async def test_admin_receives_the_current_teacher_for_audit_operations(self):
+        conn = FakeConnection({"docente_id": TEACHER_ID})
+
+        teacher_id = await assert_can_manage_group(conn, user("ADMIN"), GROUP_ID)
+
+        self.assertEqual(teacher_id, TEACHER_ID)
 
 
 class GroupResultAuthorizationTests(unittest.IsolatedAsyncioTestCase):
