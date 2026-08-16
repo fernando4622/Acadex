@@ -249,7 +249,7 @@ async def get_detailed_report(
         assert_docente_en_grupo(user, grupo_id)
 
     query = """
-        SELECT al.no_control AS matricula,
+        SELECT al.no_control,
                al.nombre || ' ' || al.apellido_pat || COALESCE(' ' || al.apellido_mat, '') AS alumno,
                m.nombre AS materia,
                rm.resultado_final,

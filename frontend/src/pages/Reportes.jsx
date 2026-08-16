@@ -155,7 +155,7 @@ function TabCalificacionesGrupo({ periodos }) {
   // Construir columnas dinámicas con unidades
   const unidades = data?.unidades || []
   const cols = [
-    { key: 'matricula', label: 'Matrícula' },
+    { key: 'no_control', label: 'No. Control' },
     { key: 'alumno', label: 'Alumno' },
     ...unidades.map(u => ({
       key: `_u${u.numero}`,
@@ -231,7 +231,7 @@ function TabPorMateria({ periodos }) {
     { key: 'periodo', label: 'Periodo' },
     { key: 'grupo', label: 'Grupo' },
     { key: 'docente', label: 'Docente' },
-    { key: 'matricula', label: 'Matrícula' },
+    { key: 'no_control', label: 'No. Control' },
     { key: 'alumno', label: 'Alumno' },
     { key: 'resultado_final', label: 'Final', render: v => <span className={`font-black ${v >= 70 ? 'text-emerald-600' : v != null ? 'text-rose-600' : 'text-slate-400'}`}>{v ?? '—'}</span> },
     { key: 'estatus', label: 'Estatus', render: v => <EstatusBadge v={v} /> },
@@ -337,7 +337,7 @@ function TabReprobados({ periodos }) {
   }
 
   const cols = [
-    { key: 'matricula', label: 'Matrícula', render: v => <span className="font-mono font-bold text-slate-600">{v}</span> },
+    { key: 'no_control', label: 'No. Control', render: v => <span className="font-mono font-bold text-slate-600">{v}</span> },
     { key: 'alumno', label: 'Alumno', render: v => <span className="font-semibold text-slate-800">{v}</span> },
     { key: 'materia', label: 'Materia' },
     { key: 'grupo', label: 'Grupo' },

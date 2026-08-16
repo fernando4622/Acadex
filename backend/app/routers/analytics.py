@@ -112,7 +112,7 @@ async def mejores_alumnos(
 ):
     """
     Alumnos con mejor aprovechamiento.
-    Tabla: num_control, nombre, promedio, materias cursadas, materias reprobadas.
+    Tabla: no_control, nombre, promedio, materias cursadas, materias reprobadas.
     """
     where = "AND g.periodo_id = $1" if periodo_id else ""
     params = [periodo_id] if periodo_id else []

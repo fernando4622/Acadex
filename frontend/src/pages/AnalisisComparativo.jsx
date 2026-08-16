@@ -78,7 +78,7 @@ export default function AnalisisComparativo() {
   const colsByTab = [
     [ {key:'materia_id',label:'ID'},{key:'materia',label:'Materia'},{key:'promedio_a',label:'Prom. A'},{key:'promedio_b',label:'Prom. B'},{key:'diferencia',label:'Dif.'},{key:'pct_reprobacion_a',label:'% Rep. A'},{key:'pct_reprobacion_b',label:'% Rep. B'},{key:'inscritos_a',label:'Insc. A'},{key:'inscritos_b',label:'Insc. B'} ],
     [ {key:'num_empleado',label:'Num. Emp.'},{key:'docente',label:'Docente'},{key:'num_grupos',label:'Grupos'},{key:'total_alumnos',label:'Alumnos'},{key:'pct_aprobacion',label:'% Aprob.',render:v=>v!=null?`${v}%`:'—'},{key:'promedio_general',label:'Promedio'} ],
-    [ {key:'num_control',label:'Num. Control'},{key:'alumno',label:'Alumno'},{key:'promedio',label:'Promedio'},{key:'materias_cursadas',label:'Cursadas'},{key:'materias_reprobadas',label:'Reprobadas'} ],
+    [ {key:'no_control',label:'No. Control'},{key:'alumno',label:'Alumno'},{key:'promedio',label:'Promedio'},{key:'materias_cursadas',label:'Cursadas'},{key:'materias_reprobadas',label:'Reprobadas'} ],
     [ {key:'grupo',label:'Grupo'},{key:'materia',label:'Materia'},{key:'docente',label:'Docente'},{key:'total_inscritos',label:'Inscritos'},{key:'sin_actividad',label:'Sin Actividad'},{key:'tasa_desercion_pct',label:'% Deserción',render:v=>v!=null?`${v}%`:'—'} ],
     [ {key:'id',label:'ID'},{key:'materia',label:'Materia'},{key:'total_evaluados',label:'Evaluados'},{key:'reprobados',label:'Reprobados'},{key:'pct_reprobacion',label:'% Rep.',render:v=>v!=null?`${v}%`:'—'},{key:'promedio_historico',label:'Prom. Hist.'},{key:'periodos_impartidos',label:'Periodos'} ],
   ]

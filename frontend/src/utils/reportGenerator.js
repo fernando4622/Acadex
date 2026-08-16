@@ -135,7 +135,7 @@ export const generarReporteAcademico = (stats, detailedData, options = {}) => {
 
   const tableHead = options.headers || [['No. Control', 'Alumno', 'Bonus', 'Razón', 'Calificación', 'Estado']];
   const tableBody = options.body || detailedData.map(d => [
-    d.no_control ?? d.matricula,
+    d.no_control,
     d.alumno,
     (d.bonus_materia || d.bonus_unidad || d.bonus) ? `+${d.bonus_materia || d.bonus_unidad || d.bonus}` : '0',
     d.justificacion || d.justificacion_bonus || '',
