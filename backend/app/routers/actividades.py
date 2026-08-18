@@ -9,6 +9,7 @@ from app.middleware.auth import (
 )
 from app.auth.authorization import (
     assert_can_manage_group,
+    assert_can_read_enrollment,
     assert_can_read_group_content,
 )
 from app.schemas.actividad import ActividadCreate, ActividadUpdate, ActividadResponse
@@ -166,18 +167,12 @@ async def eliminar_actividad(
 # Endpoint especial para alumnos: actividades de su inscripción
 @router.get("/mis-actividades/{inscripcion_id}")
 async def mis_actividades(
-    inscripcion_id: str,
+    inscripcion_id: UUID,
     conn: Connection = Depends(get_conn),
     user: dict = Depends(get_current_user),
 ):
     """Retorna las actividades visibles para el alumno de una inscripción concreta."""
-    if is_alumno(user):
-        alumno_id_insc = await conn.fetchval(
-            "SELECT alumno_id FROM academ.inscripcion WHERE id=$1::UUID", inscripcion_id
-        )
-        if str(alumno_id_insc) != str(user.get("id_entidad")):
-            raise HTTPException(403, detail={"codigo": "SIN_PERMISO",
-                                             "mensaje": "Solo puedes ver tus propias actividades."})
+    await assert_can_read_enrollment(conn, user, inscripcion_id)
     rows = await conn.fetch(
         """SELECT actividad_id, tipo_nombre, descripcion, ponderacion,
                   unidad_id, unidad_numero, unidad_nombre, unidad_estado,

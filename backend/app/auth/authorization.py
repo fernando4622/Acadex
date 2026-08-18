@@ -53,6 +53,19 @@ def _assert_can_read_student_resource(
     raise _forbidden()
 
 
+def assert_can_read_student_record(user: dict, alumno_id: UUID) -> None:
+    """Allow an administrator or the student who owns an individual record."""
+    if _has_role(user, "ADMIN"):
+        return
+    if (
+        _has_role(user, "ALUMNO")
+        and str(user.get("id_entidad")) == str(alumno_id)
+    ):
+        return
+
+    raise _forbidden()
+
+
 async def assert_can_read_group_results(
     conn: Connection,
     user: dict,
