@@ -7,8 +7,8 @@ from datetime import date
 from uuid import UUID
 
 from app.database import get_conn
-from app.middleware.auth import require_admin, get_current_user, require_docente_o_admin, is_docente, is_alumno, is_admin
-from app.auth.authorization import assert_can_manage_group
+from app.middleware.auth import require_admin, get_current_user, require_docente_o_admin, is_alumno
+from app.auth.authorization import assert_can_manage_group, assert_can_read_enrollment
 from app.schemas.inscripcion import InscripcionCreate
 
 router = APIRouter(tags=["Inscripciones"])
@@ -318,37 +318,7 @@ async def obtener_desglose(
     user: dict = Depends(get_current_user),
 ):
     try:
-        # Reglas de negocio:
-        # id_user es el alumno_id o docente_id ligado al usuario
-        id_user_str = user.get("id_entidad")
-        id_user_uuid = UUID(id_user_str) if id_user_str else None
-
-        if is_admin(user):
-            pass  # Admin tiene acceso total
-        elif is_docente(user):
-            if not id_user_uuid:
-                 raise HTTPException(403, detail={"codigo": "SIN_PERFIL", "mensaje": "No tienes un perfil de docente asociado."})
-            
-            tiene_permiso = await conn.fetchval("""
-                SELECT 1 FROM academ.inscripcion i
-                JOIN academ.grupo g ON g.id = i.grupo_id
-                WHERE i.id = $1::uuid AND g.docente_id = $2::uuid
-            """, inscripcion_id, id_user_uuid)
-            
-            if not tiene_permiso:
-                raise HTTPException(403, detail={"codigo": "SIN_ACCESO", "mensaje": "No perteneces al grupo de este alumno."})
-
-        elif is_alumno(user):
-            if not id_user_uuid:
-                 raise HTTPException(403, detail={"codigo": "SIN_PERFIL", "mensaje": "No tienes un perfil de alumno asociado."})
-            
-            alumno_id_insc = await conn.fetchval(
-                "SELECT alumno_id FROM academ.inscripcion WHERE id=$1", inscripcion_id
-            )
-            if str(alumno_id_insc) != str(id_user_uuid):
-                raise HTTPException(403, detail={"codigo": "SIN_ACCESO", "mensaje": "Solo puedes ver tu propio desglose."})
-        else:
-            raise HTTPException(403, detail={"codigo": "ROL_NO_AUTORIZADO", "mensaje": "Rol no autorizado para ver desgloses."})
+        await assert_can_read_enrollment(conn, user, inscripcion_id)
         
         # Obtener desglose
         json_res = await conn.fetchval(

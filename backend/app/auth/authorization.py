@@ -30,6 +30,29 @@ def _forbidden() -> HTTPException:
     )
 
 
+def _assert_can_read_student_resource(
+    user: dict,
+    *,
+    alumno_id: UUID,
+    docente_id: UUID,
+    allow_student_owner: bool,
+) -> None:
+    if _has_role(user, "ADMIN"):
+        return
+
+    entity_id = str(user.get("id_entidad"))
+    if _has_role(user, "DOCENTE") and entity_id == str(docente_id):
+        return
+    if (
+        allow_student_owner
+        and _has_role(user, "ALUMNO")
+        and entity_id == str(alumno_id)
+    ):
+        return
+
+    raise _forbidden()
+
+
 async def assert_can_read_group_results(
     conn: Connection,
     user: dict,
@@ -126,21 +149,36 @@ async def assert_can_read_enrollment_unit(
         # A mismatched enrollment/unit pair is indistinguishable from a missing resource.
         raise _not_found()
 
-    if _has_role(user, "ADMIN"):
-        return
+    _assert_can_read_student_resource(
+        user,
+        alumno_id=resource["alumno_id"],
+        docente_id=resource["docente_id"],
+        allow_student_owner=allow_student_owner,
+    )
 
-    entity_id = str(user.get("id_entidad"))
-    if _has_role(user, "DOCENTE") and entity_id == str(resource["docente_id"]):
-        return
 
-    if (
-        allow_student_owner
-        and _has_role(user, "ALUMNO")
-        and entity_id == str(resource["alumno_id"])
-    ):
-        return
+async def assert_can_read_enrollment(
+    conn: Connection,
+    user: dict,
+    inscripcion_id: UUID,
+) -> None:
+    """Authorize access using the enrollment's current student and teacher."""
+    resource = await conn.fetchrow(
+        """SELECT i.alumno_id, g.docente_id
+           FROM academ.inscripcion i
+           JOIN academ.grupo g ON g.id=i.grupo_id
+           WHERE i.id=$1""",
+        inscripcion_id,
+    )
+    if not resource:
+        raise _not_found()
 
-    raise _forbidden()
+    _assert_can_read_student_resource(
+        user,
+        alumno_id=resource["alumno_id"],
+        docente_id=resource["docente_id"],
+        allow_student_owner=True,
+    )
 
 
 async def authorize_group_mutation(
