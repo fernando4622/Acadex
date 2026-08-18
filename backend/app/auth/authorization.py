@@ -194,6 +194,48 @@ async def assert_can_read_enrollment(
     )
 
 
+async def _get_activity_group(conn: Connection, actividad_id: int) -> UUID:
+    grupo_id = await conn.fetchval(
+        """SELECT u.grupo_id
+           FROM academ.actividad a
+           JOIN academ.unidad u ON u.id=a.unidad_id
+           WHERE a.id=$1""",
+        actividad_id,
+    )
+    if not grupo_id:
+        raise _not_found()
+    return grupo_id
+
+
+async def assert_can_manage_activity(
+    conn: Connection,
+    user: dict,
+    actividad_id: int,
+) -> UUID:
+    """Authorize against the current owner of an activity's group."""
+    grupo_id = await _get_activity_group(conn, actividad_id)
+
+    await assert_can_manage_group(conn, user, grupo_id)
+    return grupo_id
+
+
+async def authorize_activity_mutation(
+    conn: Connection,
+    user: dict,
+    actividad_id: int,
+    enrollment_ids: list[UUID],
+) -> tuple[UUID, UUID]:
+    """Authorize an activity and all enrollment targets before grade mutation."""
+    grupo_id = await _get_activity_group(conn, actividad_id)
+    teacher_id = await authorize_group_mutation(
+        conn,
+        user,
+        grupo_id,
+        enrollment_ids,
+    )
+    return grupo_id, teacher_id
+
+
 async def authorize_group_mutation(
     conn: Connection,
     user: dict,
