@@ -7,7 +7,8 @@ from datetime import date
 from uuid import UUID
 
 from app.database import get_conn
-from app.middleware.auth import require_admin, get_current_user, require_docente_o_admin, assert_docente_en_grupo, is_docente, is_alumno, is_admin
+from app.middleware.auth import require_admin, get_current_user, require_docente_o_admin, is_docente, is_alumno, is_admin
+from app.auth.authorization import assert_can_manage_group
 from app.schemas.inscripcion import InscripcionCreate
 
 router = APIRouter(tags=["Inscripciones"])
@@ -277,8 +278,9 @@ async def importar_inscripciones_csv(
 async def listar_inscripciones(
     grupo_id: UUID,
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(require_docente_o_admin),
+    user: dict = Depends(require_docente_o_admin),
 ):
+    await assert_can_manage_group(conn, user, grupo_id)
     rows = await conn.fetch(
         """SELECT i.id, i.alumno_id, i.grupo_id, i.fecha_inscripcion, i.estado,
                   a.nombre || ' ' || a.apellido_pat || ' ' || COALESCE(a.apellido_mat, '') AS alumno_nombre,

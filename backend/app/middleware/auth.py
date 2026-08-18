@@ -50,18 +50,6 @@ def require_alumno_o_admin(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
-def assert_docente_en_grupo(user: dict, grupo_id: str) -> None:
-    """ADMIN siempre pasa. DOCENTE solo si el grupo está en su lista."""
-    if _tiene_rol(user, "ADMIN"):
-        return
-    if str(grupo_id) not in [str(g) for g in user.get("grupos", [])]:
-        raise HTTPException(
-            status_code=403,
-            detail={"codigo":"GRUPO_NO_AUTORIZADO",
-                    "mensaje":f"No tienes acceso al grupo {grupo_id}."},
-        )
-
-
 def is_admin(user: dict) -> bool:
     return _tiene_rol(user, "ADMIN")
 
