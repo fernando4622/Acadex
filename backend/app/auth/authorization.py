@@ -61,6 +61,47 @@ async def assert_can_manage_group(
     raise _forbidden()
 
 
+async def assert_can_read_group_content(
+    conn: Connection,
+    user: dict,
+    grupo_id: UUID,
+) -> None:
+    """Allow current staff or an actively enrolled student to read group content."""
+    group = await conn.fetchrow(
+        "SELECT docente_id FROM academ.grupo WHERE id=$1",
+        grupo_id,
+    )
+    if not group:
+        raise _not_found()
+
+    if _has_role(user, "ADMIN"):
+        return
+
+    entity_id = user.get("id_entidad")
+    if _has_role(user, "DOCENTE") and str(entity_id) == str(group["docente_id"]):
+        return
+
+    if _has_role(user, "ALUMNO") and entity_id:
+        try:
+            student_id = UUID(str(entity_id))
+        except ValueError:
+            raise _forbidden()
+        enrolled = await conn.fetchval(
+            """
+            SELECT EXISTS(
+                SELECT 1 FROM academ.inscripcion
+                WHERE grupo_id=$1 AND alumno_id=$2 AND estado='ACTIVA'
+            )
+            """,
+            grupo_id,
+            student_id,
+        )
+        if enrolled:
+            return
+
+    raise _forbidden()
+
+
 async def assert_can_read_enrollment_unit(
     conn: Connection,
     user: dict,
