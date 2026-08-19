@@ -66,6 +66,18 @@ def assert_can_read_student_record(user: dict, alumno_id: UUID) -> None:
     raise _forbidden()
 
 
+def get_group_list_scope(user: dict) -> str:
+    """Resolve the only supported group-list scope for the authenticated roles."""
+    if _has_role(user, "ADMIN"):
+        return "ADMIN"
+    if _has_role(user, "DOCENTE"):
+        return "DOCENTE"
+    if _has_role(user, "ALUMNO"):
+        return "ALUMNO"
+
+    raise _forbidden()
+
+
 async def assert_can_read_group_results(
     conn: Connection,
     user: dict,

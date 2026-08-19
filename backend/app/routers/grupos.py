@@ -6,8 +6,12 @@ import csv
 import io
 from uuid import UUID
 from app.database import get_conn
-from app.middleware.auth import require_admin, require_docente_o_admin, get_current_user, is_admin, is_docente, is_alumno
-from app.auth.authorization import assert_can_manage_group
+from app.middleware.auth import require_admin, require_docente_o_admin, get_current_user
+from app.auth.authorization import (
+    assert_can_manage_group,
+    assert_can_read_group_content,
+    get_group_list_scope,
+)
 from app.schemas.grupo import GrupoCreate, GrupoResponse
 from app.errors import handle_pg_error
 from app.helpers.plan_materia import resolver_grupo_desde_clave_materia
@@ -23,7 +27,8 @@ async def listar_grupos(
     conn: Connection = Depends(get_conn),
     user: dict = Depends(get_current_user),
 ):
-    if is_admin(user):
+    scope = get_group_list_scope(user)
+    if scope == "ADMIN":
         rows = await conn.fetch(
             """SELECT g.id,g.nombre,g.plan_materia_id,g.docente_id,g.periodo_id,g.calificacion_maxima,g.estado,
                       g.letra_grupo,
@@ -39,7 +44,7 @@ async def listar_grupos(
                LEFT JOIN academ.docente d ON d.id = g.docente_id
                ORDER BY g.estado"""
         )
-    elif is_docente(user):
+    elif scope == "DOCENTE":
         rows = await conn.fetch(
             """SELECT g.id,g.nombre,g.plan_materia_id,g.docente_id,g.periodo_id,g.calificacion_maxima,g.estado,
                       g.letra_grupo,
@@ -81,8 +86,9 @@ async def listar_grupos(
 async def obtener_grupo(
     grupo_id: UUID,
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),
 ):
+    await assert_can_read_group_content(conn, user, grupo_id)
     row = await conn.fetchrow(
         """SELECT g.id, g.nombre, g.plan_materia_id, g.docente_id, g.periodo_id, g.calificacion_maxima, g.estado,
                   g.letra_grupo,
