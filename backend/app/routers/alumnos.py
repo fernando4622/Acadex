@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from asyncpg import Connection, UniqueViolationError
 
 from app.database import get_conn
-from app.middleware.auth import require_admin, require_docente_o_admin, get_current_user, is_alumno
+from app.middleware.auth import require_admin, get_current_user, is_alumno
 from app.auth.service import hash_password
 from app.schemas.alumno import (
     AlumnoCreate, AlumnoUpdate, AlumnoResponse,
@@ -108,7 +108,7 @@ async def obtener_avance_mio(
 @router.get("", response_model=list[AlumnoResponse])
 async def listar_alumnos(
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(require_docente_o_admin),
+    _: dict = Depends(require_admin),
 ):
     rows = await conn.fetch(
         """
@@ -224,7 +224,7 @@ async def crear_alumno(
 async def obtener_alumno(
     alumno_id: str,
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(require_docente_o_admin),
+    _: dict = Depends(require_admin),
 ):
     row = await conn.fetchrow(
         """SELECT a.id, a.no_control, a.curp, a.nombre, a.apellido_pat, a.apellido_mat,
@@ -277,7 +277,7 @@ async def actualizar_alumno(
 async def obtener_analytics_alumno(
     alumno_id: str,
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(require_docente_o_admin)
+    _: dict = Depends(require_admin)
 ):
     stats = await conn.fetchrow(
         """SELECT

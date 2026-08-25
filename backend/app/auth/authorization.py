@@ -66,6 +66,19 @@ def assert_can_read_student_record(user: dict, alumno_id: UUID) -> None:
     raise _forbidden()
 
 
+def assert_can_read_teacher_record(user: dict, docente_id: UUID) -> None:
+    """Allow an administrator or the teacher who owns an individual record."""
+    if _has_role(user, "ADMIN"):
+        return
+    if (
+        _has_role(user, "DOCENTE")
+        and str(user.get("id_entidad")) == str(docente_id)
+    ):
+        return
+
+    raise _forbidden()
+
+
 def get_group_list_scope(user: dict) -> str:
     """Resolve the only supported group-list scope for the authenticated roles."""
     if _has_role(user, "ADMIN"):
