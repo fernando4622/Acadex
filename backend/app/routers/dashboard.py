@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends
 from asyncpg import Connection
 from app.database import get_conn
 from app.middleware.auth import (
-    require_admin, require_docente_o_admin, get_current_user,
-    is_admin, is_docente, is_alumno, assert_docente_en_grupo
+    require_admin, require_docente, require_alumno,
+    require_docente_o_admin, get_current_user,
+    is_admin
 )
+from app.auth.authorization import assert_can_manage_group
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -102,7 +104,7 @@ async def get_admin_stats(
 @router.get("/docente")
 async def get_docente_stats(
     conn: Connection = Depends(get_conn),
-    user: dict = Depends(require_docente_o_admin),
+    user: dict = Depends(require_docente),
 ):
     docente_id = user["id_entidad"]
 
@@ -169,7 +171,7 @@ async def get_docente_stats(
 @router.get("/alumno")
 async def get_alumno_stats(
     conn: Connection = Depends(get_conn),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_alumno),
 ):
     try:
         alumno_id = user["id_entidad"]
@@ -217,6 +219,7 @@ async def get_alumno_stats(
                 WHERE i.alumno_id = $1::UUID 
                   AND i.estado = 'ACTIVA'
                   AND a.activa = TRUE 
+                  AND a.publicada = TRUE
                   AND a.fecha_cierre IS NOT NULL
                   AND a.fecha_cierre >= CURRENT_DATE
                 ORDER BY a.fecha_cierre ASC
@@ -246,7 +249,7 @@ async def get_detailed_report(
             from fastapi import HTTPException
             raise HTTPException(403, detail={"codigo": "SIN_PERMISO",
                                              "mensaje": "Solo el administrador puede ver reportes globales."})
-        assert_docente_en_grupo(user, grupo_id)
+        await assert_can_manage_group(conn, user, grupo_id)
 
     query = """
         SELECT al.no_control,

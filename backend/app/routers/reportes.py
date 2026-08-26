@@ -16,7 +16,8 @@ from typing import Optional
 from uuid import UUID
 
 from app.database import get_conn
-from app.middleware.auth import require_admin, get_current_user, is_admin
+from app.middleware.auth import require_admin, get_current_user
+from app.auth.authorization import assert_can_read_student_record
 
 router = APIRouter(prefix="/reportes", tags=["Reportes"])
 
@@ -35,10 +36,7 @@ async def boleta_alumno(
     Retorna: matrícula, nombre, grupo (desde inscripción), periodo,
              materias, calificaciones, promedio, reprobadas.
     """
-    # Control de acceso: alumno solo puede ver su propia boleta
-    if not is_admin(user):
-        if str(user.get("id_entidad", "")) != str(alumno_id):
-            raise HTTPException(403, detail={"codigo": "SIN_PERMISO", "mensaje": "Solo puedes ver tu propia boleta."})
+    assert_can_read_student_record(user, alumno_id)
 
     # Datos del alumno
     alumno = await conn.fetchrow(

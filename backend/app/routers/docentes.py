@@ -11,7 +11,8 @@ from uuid import UUID
 import unicodedata
 import re
 from app.database import get_conn
-from app.middleware.auth import require_admin, get_current_user
+from app.auth.authorization import assert_can_read_teacher_record
+from app.middleware.auth import require_admin, require_docente, get_current_user
 from app.auth.service import hash_password
 
 router = APIRouter(prefix="/docentes", tags=["Docentes"])
@@ -83,7 +84,7 @@ class ResetPasswordBody(BaseModel):
 @router.get("")
 async def listar_docentes(
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(get_current_user),
+    _: dict = Depends(require_admin),
 ):
     rows = await conn.fetch(
         """SELECT d.id, d.num_empleado, d.nombre, d.apellido_pat, d.apellido_mat,
@@ -102,7 +103,7 @@ async def listar_docentes(
 @router.get("/me/kardex")
 async def obtener_kardex_propio(
     conn: Connection = Depends(get_conn),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_docente),
 ):
     """
     Para el docente autenticado: devuelve todos sus grupos histÃ³ricos
@@ -145,8 +146,9 @@ async def obtener_kardex_propio(
 async def obtener_docente(
     docente_id: UUID,
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),
 ):
+    assert_can_read_teacher_record(user, docente_id)
     row = await conn.fetchrow(
         """SELECT d.id, d.num_empleado, d.nombre, d.apellido_pat, d.apellido_mat,
                   d.fecha_nacimiento, d.email, d.activo, d.created_at, d.updated_at,
@@ -322,9 +324,10 @@ async def crear_acceso_docente(
 async def grupos_del_docente(
     docente_id: UUID,
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),
 ):
     """Lista los grupos histÃ³ricos del docente con mÃ©tricas bÃ¡sicas."""
+    assert_can_read_teacher_record(user, docente_id)
     rows = await conn.fetch(
         """SELECT g.id, g.nombre, g.letra_grupo AS clave_grupo, g.estado,
                   m.nombre AS materia, p.codigo AS periodo, p.estado AS estado_periodo,

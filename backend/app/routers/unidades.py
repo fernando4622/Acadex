@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from asyncpg import Connection
 from uuid import UUID
 from app.database import get_conn
-from app.middleware.auth import is_admin, is_docente, is_alumno, require_docente_o_admin, get_current_user, assert_docente_en_grupo, require_admin
+from app.middleware.auth import require_docente_o_admin, get_current_user
+from app.auth.authorization import assert_can_manage_group, assert_can_read_group_content
 from app.schemas.unidad import UnidadCreate, UnidadResponse, CerrarUnidadRequest
 from app.errors import handle_pg_error
 
@@ -14,8 +15,9 @@ router = APIRouter(tags=["Unidades"])
 async def listar_unidades(
     grupo_id: UUID,
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),
 ):
+    await assert_can_read_group_content(conn, user, grupo_id)
     rows = await conn.fetch(
         """SELECT u.id, u.grupo_id, u.numero, u.nombre, u.estado, u.fecha_cierre,
                   v.suma_ponderaciones, v.estructura_completa
@@ -39,7 +41,7 @@ async def cerrar_unidad(
     grupo_id = await conn.fetchval("SELECT grupo_id FROM academ.unidad WHERE id=$1", unidad_id)
     if not grupo_id:
         raise HTTPException(404, detail={"codigo":"NO_ENCONTRADO","mensaje":"Unidad no encontrada."})
-    assert_docente_en_grupo(user, grupo_id)
+    docente_id = await assert_can_manage_group(conn, user, grupo_id)
 
     # Validar que no existan unidades anteriores abiertas
     unidad_actual = await conn.fetchrow("SELECT numero FROM academ.unidad WHERE id=$1", unidad_id)
@@ -51,9 +53,6 @@ async def cerrar_unidad(
         if unidad_anterior_abierta:
             raise HTTPException(409, detail={"codigo": "UNIDAD_ANTERIOR_ABIERTA", "mensaje": "No se puede cerrar esta unidad porque existen unidades anteriores pendientes de cerrar."})
 
-    docente_id = user.get("id_entidad")
-    if is_admin(user) or not docente_id:
-        docente_id = await conn.fetchval("SELECT docente_id FROM academ.grupo WHERE id=$1", grupo_id)
     await conn.execute(
         "SELECT set_config('app.usuario_id',$1,TRUE), set_config('app.motivo',$2,TRUE)",
         user["sub"], "Cierre de unidad",
@@ -69,11 +68,15 @@ async def cerrar_unidad(
 async def captura_pendiente(
     unidad_id: int,
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(require_docente_o_admin),
+    user: dict = Depends(require_docente_o_admin),
 ):
     """
     Verifica si una unidad tiene alumnos activos sin calificación registrados
     para alguna actividad activa.
     """
+    grupo_id = await conn.fetchval("SELECT grupo_id FROM academ.unidad WHERE id=$1", unidad_id)
+    if not grupo_id:
+        raise HTTPException(404, detail={"codigo": "NO_ENCONTRADO", "mensaje": "Unidad no encontrada."})
+    await assert_can_manage_group(conn, user, grupo_id)
     rows = await conn.fetch("SELECT * FROM academ.v_captura_pendiente WHERE unidad_id=$1", unidad_id)
     return [dict(r) for r in rows]

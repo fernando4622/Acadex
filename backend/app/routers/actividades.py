@@ -5,7 +5,12 @@ from asyncpg import Connection
 from app.database import get_conn
 from app.middleware.auth import (
     require_docente_o_admin, get_current_user,
-    assert_docente_en_grupo, is_alumno
+    is_alumno
+)
+from app.auth.authorization import (
+    assert_can_manage_group,
+    assert_can_read_enrollment,
+    assert_can_read_group_content,
 )
 from app.schemas.actividad import ActividadCreate, ActividadUpdate, ActividadResponse
 from app.errors import handle_pg_error
@@ -17,8 +22,15 @@ router = APIRouter(tags=["Actividades"])
 async def listar_actividades(
     unidad_id: int,
     conn: Connection = Depends(get_conn),
-    _: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),
 ):
+    grupo_id = await conn.fetchval(
+        "SELECT grupo_id FROM academ.unidad WHERE id=$1",
+        unidad_id,
+    )
+    if not grupo_id:
+        raise HTTPException(404, detail={"codigo": "NO_ENCONTRADO", "mensaje": "Unidad no encontrada."})
+    await assert_can_read_group_content(conn, user, grupo_id)
     try:
         rows = await conn.fetch(
             """SELECT a.id, a.unidad_id, a.tipo_catalogo_id, c.nombre AS tipo_nombre, a.descripcion, a.ponderacion,
@@ -26,8 +38,10 @@ async def listar_actividades(
                FROM academ.actividad a
                LEFT JOIN academ.tipo_actividad_catalogo c ON a.tipo_catalogo_id = c.id
                WHERE a.unidad_id=$1 AND a.activa=TRUE
+                 AND (NOT $2::boolean OR a.publicada=TRUE)
                ORDER BY a.ponderacion DESC""",
             unidad_id,
+            is_alumno(user),
         )
 
         return [dict(r) for r in rows]
@@ -49,7 +63,7 @@ async def crear_actividad(
     row_u = await conn.fetchrow("SELECT grupo_id, estado FROM academ.unidad WHERE id=$1", unidad_id)
     if not row_u:
         raise HTTPException(404, detail={"codigo": "NO_ENCONTRADO", "mensaje": "Unidad no encontrada."})
-    assert_docente_en_grupo(user, row_u["grupo_id"])
+    await assert_can_manage_group(conn, user, row_u["grupo_id"])
     if row_u["estado"] != "EDICION":
         raise HTTPException(409, detail={"codigo": "UNIDAD_BLOQUEADA",
                                          "mensaje": f"La unidad está en estado '{row_u['estado']}'. Solo se pueden añadir actividades en estado EDICION."})
@@ -91,7 +105,7 @@ async def actualizar_actividad(
     )
     if not row_a:
         raise HTTPException(404, detail={"codigo": "NO_ENCONTRADO", "mensaje": "Actividad no encontrada."})
-    assert_docente_en_grupo(user, row_a["grupo_id"])
+    await assert_can_manage_group(conn, user, row_a["grupo_id"])
     if row_a["estado"] != "EDICION":
         raise HTTPException(409, detail={"codigo": "UNIDAD_BLOQUEADA",
                                          "mensaje": "No se puede editar actividades de una unidad que no está en EDICION."})
@@ -138,7 +152,7 @@ async def eliminar_actividad(
     )
     if not row_a:
         raise HTTPException(404, detail={"codigo": "NO_ENCONTRADO", "mensaje": "Actividad no encontrada."})
-    assert_docente_en_grupo(user, row_a["grupo_id"])
+    await assert_can_manage_group(conn, user, row_a["grupo_id"])
     if row_a["estado"] != "EDICION":
         raise HTTPException(409, detail={"codigo": "UNIDAD_BLOQUEADA",
                                          "mensaje": "No se puede eliminar actividades de una unidad que no está en EDICION."})
@@ -153,18 +167,12 @@ async def eliminar_actividad(
 # Endpoint especial para alumnos: actividades de su inscripción
 @router.get("/mis-actividades/{inscripcion_id}")
 async def mis_actividades(
-    inscripcion_id: str,
+    inscripcion_id: UUID,
     conn: Connection = Depends(get_conn),
     user: dict = Depends(get_current_user),
 ):
     """Retorna las actividades visibles para el alumno de una inscripción concreta."""
-    if is_alumno(user):
-        alumno_id_insc = await conn.fetchval(
-            "SELECT alumno_id FROM academ.inscripcion WHERE id=$1::UUID", inscripcion_id
-        )
-        if str(alumno_id_insc) != str(user.get("id_entidad")):
-            raise HTTPException(403, detail={"codigo": "SIN_PERMISO",
-                                             "mensaje": "Solo puedes ver tus propias actividades."})
+    await assert_can_read_enrollment(conn, user, inscripcion_id)
     rows = await conn.fetch(
         """SELECT actividad_id, tipo_nombre, descripcion, ponderacion,
                   unidad_id, unidad_numero, unidad_nombre, unidad_estado,
@@ -195,7 +203,7 @@ async def publicar_actividad(
     )
     if not row_a:
         raise HTTPException(404, detail={"codigo": "NO_ENCONTRADO", "mensaje": "Actividad no encontrada."})
-    assert_docente_en_grupo(user, row_a["grupo_id"])
+    await assert_can_manage_group(conn, user, row_a["grupo_id"])
 
     if row_a["publicada"]:
         return {"mensaje": "La actividad ya estaba publicada.", "publicada": True}
@@ -218,7 +226,7 @@ async def publicar_unidad(
     )
     if not row_u:
         raise HTTPException(404, detail={"codigo": "NO_ENCONTRADO", "mensaje": "Unidad no encontrada."})
-    assert_docente_en_grupo(user, row_u["grupo_id"])
+    await assert_can_manage_group(conn, user, row_u["grupo_id"])
 
     res = await conn.execute(
         "UPDATE academ.actividad SET publicada=TRUE WHERE unidad_id=$1 AND activa=TRUE",
