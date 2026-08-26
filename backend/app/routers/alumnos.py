@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from asyncpg import Connection, UniqueViolationError
 
 from app.database import get_conn
-from app.middleware.auth import require_admin, get_current_user, is_alumno
+from app.middleware.auth import require_admin, require_alumno, get_current_user, is_alumno
 from app.auth.service import hash_password
 from app.schemas.alumno import (
     AlumnoCreate, AlumnoUpdate, AlumnoResponse,
@@ -31,11 +31,8 @@ def _correo_institucional(no_control: str) -> str:
 @router.get("/me/perfil", response_model=AlumnoResponse)
 async def obtener_perfil_mio(
     conn: Connection = Depends(get_conn),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_alumno),
 ):
-    if not is_alumno(user):
-         raise HTTPException(403, detail={"codigo": "SOLO_ALUMNOS", "mensaje": "Solo alumnos pueden ver su perfil"})
-    
     row = await conn.fetchrow(
            """
            SELECT a.id, a.no_control, a.curp, a.nombre, a.apellido_pat, a.apellido_mat,

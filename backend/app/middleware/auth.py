@@ -38,6 +38,18 @@ def require_admin(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
+def require_docente(user: dict = Depends(get_current_user)) -> dict:
+    if not _tiene_rol(user, "DOCENTE"):
+        raise HTTPException(403, detail={"codigo":"SIN_PERMISO","mensaje":"Requiere rol DOCENTE."})
+    return user
+
+
+def require_alumno(user: dict = Depends(get_current_user)) -> dict:
+    if not _tiene_rol(user, "ALUMNO"):
+        raise HTTPException(403, detail={"codigo":"SIN_PERMISO","mensaje":"Requiere rol ALUMNO."})
+    return user
+
+
 def require_docente_o_admin(user: dict = Depends(get_current_user)) -> dict:
     if not _tiene_rol(user, "DOCENTE", "ADMIN"):
         raise HTTPException(403, detail={"codigo":"SIN_PERMISO","mensaje":"Requiere rol DOCENTE o ADMIN."})

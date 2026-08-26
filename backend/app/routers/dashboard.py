@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends
 from asyncpg import Connection
 from app.database import get_conn
 from app.middleware.auth import (
-    require_admin, require_docente_o_admin, get_current_user,
+    require_admin, require_docente, require_alumno,
+    require_docente_o_admin, get_current_user,
     is_admin
 )
 from app.auth.authorization import assert_can_manage_group
@@ -103,7 +104,7 @@ async def get_admin_stats(
 @router.get("/docente")
 async def get_docente_stats(
     conn: Connection = Depends(get_conn),
-    user: dict = Depends(require_docente_o_admin),
+    user: dict = Depends(require_docente),
 ):
     docente_id = user["id_entidad"]
 
@@ -170,7 +171,7 @@ async def get_docente_stats(
 @router.get("/alumno")
 async def get_alumno_stats(
     conn: Connection = Depends(get_conn),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_alumno),
 ):
     try:
         alumno_id = user["id_entidad"]

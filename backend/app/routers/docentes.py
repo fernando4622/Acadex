@@ -12,7 +12,7 @@ import unicodedata
 import re
 from app.database import get_conn
 from app.auth.authorization import assert_can_read_teacher_record
-from app.middleware.auth import require_admin, get_current_user
+from app.middleware.auth import require_admin, require_docente, get_current_user
 from app.auth.service import hash_password
 
 router = APIRouter(prefix="/docentes", tags=["Docentes"])
@@ -103,7 +103,7 @@ async def listar_docentes(
 @router.get("/me/kardex")
 async def obtener_kardex_propio(
     conn: Connection = Depends(get_conn),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_docente),
 ):
     """
     Para el docente autenticado: devuelve todos sus grupos histÃ³ricos

@@ -7,7 +7,7 @@ from datetime import date
 from uuid import UUID
 
 from app.database import get_conn
-from app.middleware.auth import require_admin, get_current_user, require_docente_o_admin, is_alumno
+from app.middleware.auth import require_admin, require_alumno, get_current_user, require_docente_o_admin
 from app.auth.authorization import assert_can_manage_group, assert_can_read_enrollment
 from app.schemas.inscripcion import InscripcionCreate
 
@@ -16,15 +16,12 @@ router = APIRouter(tags=["Inscripciones"])
 @router.get("/mis-grupos")
 async def mis_grupos(
     conn: Connection = Depends(get_conn),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_alumno),
 ):
     """
     Exclusivo para alumnos: devuelve sus grupos con inscripcion_id incluido
     para que puedan consultar su desglose y resultados.
     """
-    if not is_alumno(user):
-        raise HTTPException(403, detail={"codigo": "SIN_PERMISO", "mensaje": "Solo disponible para alumnos."})
- 
     try:
         # Usamos columnas explícitas para evitar conflictos (ambos tienen resultado_final)
         rows = await conn.fetch(
