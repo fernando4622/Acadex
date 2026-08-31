@@ -1,3 +1,5 @@
+import logging
+
 import asyncpg
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,6 +18,7 @@ from app.schemas.actividad import ActividadCreate, ActividadUpdate, ActividadRes
 from app.errors import handle_pg_error
 
 router = APIRouter(tags=["Actividades"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/unidades/{unidad_id}/actividades", response_model=list[ActividadResponse])
@@ -47,9 +50,18 @@ async def listar_actividades(
         return [dict(r) for r in rows]
 
 
-    except Exception as e:
-        print(f"Error en listar_actividades para unidad {unidad_id}: {e}")
-        raise HTTPException(status_code=500, detail={"codigo": "ERROR_INTERNO", "mensaje": str(e)})
+    except Exception as exc:
+        logger.error(
+            "List unit activities failed: error_type=%s",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "codigo": "ERROR_INTERNO",
+                "mensaje": "No se pudieron cargar las actividades.",
+            },
+        )
 
 
 

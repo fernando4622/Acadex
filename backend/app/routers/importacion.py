@@ -16,6 +16,7 @@ Formato esperado de cada CSV:
 """
 import csv
 import io
+import logging
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from asyncpg import Connection
@@ -28,6 +29,22 @@ from app.schemas.docente import DocenteImportPreview
 from app.schemas.alumno import AlumnoImportPreview
 
 router = APIRouter(prefix="/importar", tags=["Importación CSV"])
+logger = logging.getLogger(__name__)
+
+
+def _unexpected_row_error(
+    operation: str,
+    row_number: int,
+    exc: Exception,
+    public_message: str,
+) -> str:
+    logger.error(
+        "CSV row operation failed: operation=%s row=%s error_type=%s",
+        operation,
+        row_number,
+        type(exc).__name__,
+    )
+    return public_message
 
 
 def generar_email_alumno(matricula: str) -> str:
@@ -271,8 +288,18 @@ async def confirmar_importar_alumnos(
                     "no_control": matricula, "nombre": f"{nombre} {ap_pat}",
                     "email": email_inst, "password": pw_texto
                 })
-        except Exception as e:
-            errores.append({"fila": i, "error": str(e)})
+        except ValueError as exc:
+            errores.append({"fila": i, "error": str(exc)})
+        except Exception as exc:
+            errores.append({
+                "fila": i,
+                "error": _unexpected_row_error(
+                    "import_students",
+                    i,
+                    exc,
+                    "No se pudo procesar la fila.",
+                ),
+            })
 
     return {"importados": ins, "omitidos": omit, "resultados": resultados, "errores_count": len(errores), "errores": errores}
 
@@ -406,8 +433,18 @@ async def confirmar_importar_docentes(
                     "fila": i, "num_empleado": num_empleado, "nombre": f"{nombre} {ap_pat}",
                     "email": email_inst, "password": pw_texto
                 })
-        except Exception as e:
-            errores.append({"fila": i, "error": str(e)})
+        except ValueError as exc:
+            errores.append({"fila": i, "error": str(exc)})
+        except Exception as exc:
+            errores.append({
+                "fila": i,
+                "error": _unexpected_row_error(
+                    "import_teachers",
+                    i,
+                    exc,
+                    "No se pudo procesar la fila.",
+                ),
+            })
 
     return {"importados": ins, "resultados": resultados, "errores": errores}
 
@@ -438,7 +475,15 @@ async def preview_materias(
         try:
             ya_existe = await conn.fetchval("SELECT id FROM academ.materia WHERE clave = $1 OR nombre = $2", clave, nombre.strip())
             r["ya_existe"] = bool(ya_existe)
-        except Exception as e: r["error"] = str(e)
+        except ValueError as exc:
+            r["error"] = str(exc)
+        except Exception as exc:
+            r["error"] = _unexpected_row_error(
+                "preview_subjects",
+                i,
+                exc,
+                "No se pudo validar la fila.",
+            )
         results.append(r)
     return results
 
@@ -483,7 +528,18 @@ async def importar_materias(
 
                 if es_nueva: ins += 1
                 else: omit += 1
-        except Exception as e: errores.append({"fila": i, "error": str(e)})
+        except ValueError as exc:
+            errores.append({"fila": i, "error": str(exc)})
+        except Exception as exc:
+            errores.append({
+                "fila": i,
+                "error": _unexpected_row_error(
+                    "import_subjects",
+                    i,
+                    exc,
+                    "No se pudo procesar la fila.",
+                ),
+            })
 
     return _resultado(ins, omit, errores)
 
@@ -522,7 +578,15 @@ async def preview_grupos(
             r["nombre"] = nombre_auto
             ya_existe = await conn.fetchval("SELECT id FROM academ.grupo WHERE nombre=$1", nombre_auto)
             r["ya_existe"] = bool(ya_existe)
-        except Exception as e: r["error"] = str(e)
+        except ValueError as exc:
+            r["error"] = str(exc)
+        except Exception as exc:
+            r["error"] = _unexpected_row_error(
+                "preview_groups",
+                i,
+                exc,
+                "No se pudo validar la fila.",
+            )
         results.append(r)
     return results
 
@@ -583,7 +647,18 @@ async def importar_grupos(
                 if row:
                     await conn.execute("INSERT INTO academ.unidad (grupo_id, numero, nombre) SELECT $1, numero, nombre FROM academ.unidad_plantilla WHERE materia_id=$2", row["id"], mc["materia_id"])
                     ins += 1
-        except Exception as e: errores.append({"fila": i, "error": str(e)})
+        except ValueError as exc:
+            errores.append({"fila": i, "error": str(exc)})
+        except Exception as exc:
+            errores.append({
+                "fila": i,
+                "error": _unexpected_row_error(
+                    "import_groups",
+                    i,
+                    exc,
+                    "No se pudo procesar la fila.",
+                ),
+            })
 
     return _resultado(ins, omit, errores)
 
@@ -609,7 +684,15 @@ async def preview_inscripciones(
             if not grupo: raise ValueError(f"Grupo {grp} no existe")
             ya_e = await conn.fetchval("SELECT 1 FROM academ.inscripcion WHERE alumno_id=$1 AND grupo_id=$2", alu["id"], grupo["id"])
             r["ya_existe"] = bool(ya_e)
-        except Exception as e: r["error"] = str(e)
+        except ValueError as exc:
+            r["error"] = str(exc)
+        except Exception as exc:
+            r["error"] = _unexpected_row_error(
+                "preview_enrollments",
+                i,
+                exc,
+                "No se pudo validar la fila.",
+            )
         results.append(r)
     return results
 
@@ -643,6 +726,17 @@ async def importar_inscripciones(
                     grupo["id"],
                 )
                 ins += 1
-        except Exception as e: errores.append({"fila": i, "error": str(e)})
+        except ValueError as exc:
+            errores.append({"fila": i, "error": str(exc)})
+        except Exception as exc:
+            errores.append({
+                "fila": i,
+                "error": _unexpected_row_error(
+                    "import_enrollments",
+                    i,
+                    exc,
+                    "No se pudo procesar la fila.",
+                ),
+            })
 
     return _resultado(ins, omit, errores)

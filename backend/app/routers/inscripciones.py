@@ -1,8 +1,8 @@
 import json
-import traceback
+import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.encoders import jsonable_encoder
-from asyncpg import Connection
+from asyncpg import Connection, UniqueViolationError
 from datetime import date
 from uuid import UUID
 
@@ -12,6 +12,7 @@ from app.auth.authorization import assert_can_manage_group, assert_can_read_enro
 from app.schemas.inscripcion import InscripcionCreate
 
 router = APIRouter(tags=["Inscripciones"])
+logger = logging.getLogger(__name__)
 
 @router.get("/mis-grupos")
 async def mis_grupos(
@@ -40,9 +41,18 @@ async def mis_grupos(
             user["id_entidad"],
         )
         return [dict(r) for r in rows]
-    except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(500, detail={"codigo": "ERROR_QUERY", "mensaje": str(e)})
+    except Exception as exc:
+        logger.error(
+            "List student groups failed: error_type=%s",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            500,
+            detail={
+                "codigo": "ERROR_INTERNO",
+                "mensaje": "No se pudieron cargar los grupos del alumno.",
+            },
+        )
 
 @router.post("/grupos/{grupo_id}/inscripciones", status_code=201)
 async def inscribir_alumno(
@@ -140,7 +150,7 @@ async def inscribir_alumno(
             "INSERT INTO academ.inscripcion (alumno_id,grupo_id,fecha_inscripcion) VALUES ($1,$2,$3) RETURNING id,alumno_id,grupo_id,fecha_inscripcion,estado",
             body.alumno_id, grupo_id, fecha,
         )
-    except Exception:
+    except UniqueViolationError:
         raise HTTPException(409, detail={"codigo": "DUPLICADO", "mensaje": "El alumno ya está inscrito en este grupo."})
     return dict(row)
 
@@ -162,7 +172,11 @@ async def importar_inscripciones_csv(
         import io
         reader = csv.DictReader(io.StringIO(text))
         filas = [{k.strip().lower(): (v.strip() if v else None) for k, v in row.items()} for row in reader]
-    except Exception as e:
+    except Exception as exc:
+        logger.warning(
+            "Enrollment CSV could not be read: error_type=%s",
+            type(exc).__name__,
+        )
         raise HTTPException(400, detail={"codigo": "CSV_INVALIDO", "mensaje": "No se pudo leer el archivo CSV."})
 
     ins = omit = 0
@@ -264,8 +278,13 @@ async def importar_inscripciones_csv(
             )
             if result == "INSERT 0 1": ins += 1
             else: omit += 1
-        except Exception as e:
-            errores.append({"fila": i, "error": str(e)})
+        except Exception as exc:
+            logger.error(
+                "Enrollment CSV row failed: row=%s error_type=%s",
+                i,
+                type(exc).__name__,
+            )
+            errores.append({"fila": i, "error": "No se pudo procesar la fila."})
 
     return {"insertados": ins, "omitidos": omit, "errores": errores, "total": ins + omit + len(errores)}
 
@@ -331,8 +350,15 @@ async def obtener_desglose(
 
     except HTTPException:
         raise
-    except Exception as e:
-        traceback.print_exc()
-        # Proporcionar un poco más de contexto en el error si es posible
-        msg = str(e)
-        raise HTTPException(500, detail={"codigo": "ERROR_INTERNO", "mensaje": f"Error interno al procesar el desglose: {msg}"})
+    except Exception as exc:
+        logger.error(
+            "Get enrollment breakdown failed: error_type=%s",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            500,
+            detail={
+                "codigo": "ERROR_INTERNO",
+                "mensaje": "No se pudo procesar el desglose.",
+            },
+        )

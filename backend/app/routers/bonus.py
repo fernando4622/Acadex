@@ -97,7 +97,6 @@ async def aplicar_bonus_materia(
     conn: Connection = Depends(get_conn),
     user: dict = Depends(require_docente_o_admin),
 ):
-    print(f"DEBUG: aplicando bonus materia para grupo {grupo_id}")
     docente_id = await authorize_group_mutation(
         conn, user, grupo_id, [body.inscripcion_id]
     )
