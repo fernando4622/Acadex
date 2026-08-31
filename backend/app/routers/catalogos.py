@@ -1,8 +1,9 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from asyncpg import Connection, UniqueViolationError
 from app.database import get_conn
 from app.middleware.auth import require_admin, get_current_user
-from app.schemas.docente import DocenteCreate, DocenteResponse
 from app.schemas.materia import MateriaCreate, MateriaResponse
 from app.schemas.unidad_plantilla import UnidadPlantillaCreate, UnidadPlantillaResponse
 from app.schemas.carrera import CarreraCreate, CarreraResponse
@@ -10,6 +11,7 @@ from app.schemas.plan_estudio import PlanEstudioCreate, PlanEstudioResponse
 from app.schemas.plan_materia import PlanMateriaCreate, PlanMateriaResponse
 from app.schemas.prerrequisito import PrerrequisitoCreate, PrerrequisitoResponse
 router = APIRouter(tags=["Catálogos"])
+logger = logging.getLogger(__name__)
 
 
 _SQL_MATERIA_LIST = """SELECT
@@ -69,7 +71,6 @@ async def crear_materia(
     conn: Connection = Depends(get_conn),
     _: dict = Depends(require_admin),
 ):
-    print(f"DEBUG: Creando materia: {body.model_dump()}")
     try:
         async with conn.transaction():
             row = await conn.fetchrow(
@@ -96,11 +97,20 @@ async def crear_materia(
         return completo
     except UniqueViolationError:
         raise HTTPException(409, detail={"codigo":"DUPLICADO","mensaje":"El nombre de la materia ya existe."})
-    except Exception as e:
-        print(f"ERROR CRÍTICO en crear_materia: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(500, detail={"codigo":"ERROR_INTERNO","mensaje": f"Error al procesar la materia: {str(e)}"})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Create subject failed: error_type=%s",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            500,
+            detail={
+                "codigo": "ERROR_INTERNO",
+                "mensaje": "No se pudo crear la materia.",
+            },
+        )
 
 
 @router.put("/materias/{materia_id}", response_model=MateriaResponse)
@@ -131,8 +141,18 @@ async def actualizar_materia(
         return completo
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(500, detail={"codigo":"ERROR_ACTUALIZACION","mensaje": str(e)})
+    except Exception as exc:
+        logger.error(
+            "Update subject failed: error_type=%s",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            500,
+            detail={
+                "codigo": "ERROR_ACTUALIZACION",
+                "mensaje": "No se pudo actualizar la materia.",
+            },
+        )
 
 @router.delete("/materias/{materia_id}", status_code=204)
 async def eliminar_materia(
@@ -288,9 +308,18 @@ async def vincular_plan_materia(
                 )
                 for i, r in enumerate(rows, start=1):
                     await conn.execute("UPDATE academ.plan_materia SET orden = $1 WHERE id = $2", i, r["id"])
-    except Exception as e:
-        print(f"DEBUG: Error vinculando materia: {e}")
-        raise HTTPException(status_code=500, detail={"mensaje": "Error interno al procesar vinculación masiva."})
+    except Exception as exc:
+        logger.error(
+            "Link subject to study plan failed: error_type=%s",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "codigo": "ERROR_INTERNO",
+                "mensaje": "No se pudo vincular la materia al plan de estudio.",
+            },
+        )
     
     return {"mensaje": "Vinculación procesada correctamente."}
 
@@ -395,10 +424,18 @@ async def agregar_prerrequisito(
         return dict(row)
     except UniqueViolationError:
         raise HTTPException(status_code=400, detail={"codigo": "DUPLICADO", "mensaje": "Este prerrequisito ya existe"})
-    except Exception as e:
-        if 'Conflicto de Plan' in str(e):
-            raise HTTPException(status_code=400, detail={"codigo": "ERROR", "mensaje": str(e)})
-        raise HTTPException(status_code=500, detail=f"Error al crear prerrequisito: {e}")
+    except Exception as exc:
+        logger.error(
+            "Create prerequisite failed: error_type=%s",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "codigo": "ERROR_INTERNO",
+                "mensaje": "No se pudo crear el prerrequisito.",
+            },
+        )
 
 @router.delete("/planes/materias/prerrequisitos/{pr_id}")
 async def eliminar_prerrequisito(

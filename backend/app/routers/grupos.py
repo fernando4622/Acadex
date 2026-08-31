@@ -1,3 +1,5 @@
+import logging
+
 import asyncpg
 import re
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
@@ -17,6 +19,7 @@ from app.errors import handle_pg_error
 from app.helpers.plan_materia import resolver_grupo_desde_clave_materia
 
 router = APIRouter(prefix="/grupos", tags=["Grupos"])
+logger = logging.getLogger(__name__)
 
 DIAS_ORDEN = ["L", "M", "X", "J", "V", "S", "D"]
 DIAS_LABEL = {1: "Lunes", 2: "Martes", 3: "Miércoles", 4: "Jueves", 5: "Viernes", 6: "Sábado", 7: "Domingo"}
@@ -202,9 +205,18 @@ async def alumnos_del_grupo(
             grupo_id,
         )
         return [dict(r) for r in rows]
-    except Exception as e:
-        print(f"DEBUG ERROR en alumnos_del_grupo: {e}")
-        raise HTTPException(500, detail={"codigo": "ERROR_INTERNO", "mensaje": str(e)})
+    except Exception as exc:
+        logger.error(
+            "List group students failed: error_type=%s",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            500,
+            detail={
+                "codigo": "ERROR_INTERNO",
+                "mensaje": "No se pudieron cargar los alumnos del grupo.",
+            },
+        )
 
 
 @router.post("/{grupo_id}/finalizar")

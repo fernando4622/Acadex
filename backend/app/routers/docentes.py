@@ -3,6 +3,7 @@ Router de Docentes â€” CRUD completo + reset de contraseÃ±a.
 Solo ADMIN puede crear/editar/eliminar docentes.
 """
 from datetime import date
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from asyncpg import Connection, UniqueViolationError
@@ -16,6 +17,7 @@ from app.middleware.auth import require_admin, require_docente, get_current_user
 from app.auth.service import hash_password
 
 router = APIRouter(prefix="/docentes", tags=["Docentes"])
+logger = logging.getLogger(__name__)
 
 
 # â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -215,16 +217,27 @@ async def crear_docente(
             result["username"] = email_inst
             return result
 
-    except UniqueViolationError as e:
-        detail = str(e).lower()
-        if "num_empleado" in detail:
+    except UniqueViolationError as exc:
+        constraint = getattr(exc, "constraint_name", "") or ""
+        if constraint == "uq_docente_num_empleado":
             raise HTTPException(409, detail={"codigo": "NUM_EMPLEADO_DUPLICADO", "mensaje": f"El nÃºmero de empleado '{body.num_empleado}' ya estÃ¡ registrado."})
-        elif "usuario" in detail or "email" in detail:
+        if constraint in {"uq_usuario_email", "uq_docente_email"}:
             raise HTTPException(409, detail={"codigo": "EMAIL_DUPLICADO", "mensaje": f"El correo institucional '{email_inst}' ya estÃ¡ en uso."})
         raise HTTPException(409, detail={"codigo": "DUPLICADO", "mensaje": "Ya existe un docente con estos datos Ãºnicos."})
-    except Exception as e:
-        # Otros errores
-        raise HTTPException(500, detail={"codigo": "ERROR_INTERNO", "mensaje": str(e)})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Create teacher failed: error_type=%s",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            500,
+            detail={
+                "codigo": "ERROR_INTERNO",
+                "mensaje": "No se pudo crear el docente.",
+            },
+        )
 
 
 
