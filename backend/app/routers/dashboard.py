@@ -1,7 +1,7 @@
+import logging
 from typing import Optional
 from uuid import UUID
-import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from asyncpg import Connection
 from app.database import get_conn
 from app.middleware.auth import (
@@ -12,6 +12,7 @@ from app.middleware.auth import (
 from app.auth.authorization import assert_can_manage_group
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+logger = logging.getLogger(__name__)
 
 
 # DASHBOARD ADMIN — usa v_analitica_admin + métricas globales
@@ -224,17 +225,31 @@ async def get_alumno_stats(
                   AND a.fecha_cierre >= CURRENT_DATE
                 ORDER BY a.fecha_cierre ASC
             """, alumno_id)
-        except Exception as query_err:
-            print(f"Error fetching actividades_cercanas: {query_err}")
+        except Exception as exc:
+            logger.warning(
+                "Student dashboard upcoming activities unavailable: error_type=%s",
+                type(exc).__name__,
+            )
 
         return {
             "posicionamiento": [dict(r) for r in posicionamiento],
             "en_curso":        [dict(r) for r in en_curso],
             "actividades_cercanas": [dict(r) for r in actividades_cercanas],
         }
-    except Exception as e:
-        print(f"Error general en dashboard alumno: {e}")
-        return {"error": str(e)}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Student dashboard failed: error_type=%s",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "codigo": "ERROR_INTERNO",
+                "mensaje": "No se pudo cargar el dashboard del alumno.",
+            },
+        )
 
 
 # REPORTE DETALLADO — acceso Admin o Docente en su grupo
@@ -246,7 +261,6 @@ async def get_detailed_report(
 ):
     if not is_admin(user):
         if not grupo_id:
-            from fastapi import HTTPException
             raise HTTPException(403, detail={"codigo": "SIN_PERMISO",
                                              "mensaje": "Solo el administrador puede ver reportes globales."})
         await assert_can_manage_group(conn, user, grupo_id)

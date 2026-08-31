@@ -67,5 +67,51 @@ class ResultErrorHandlingTests(unittest.TestCase):
         self.assertNotIn("logger.exception", self.router)
 
 
+class DashboardAndCatalogErrorHandlingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        routers = BACKEND_ROOT / "app" / "routers"
+        cls.dashboard = (routers / "dashboard.py").read_text(encoding="utf-8")
+        cls.catalogs = (routers / "catalogos.py").read_text(encoding="utf-8")
+
+    def test_dashboard_returns_stable_internal_error(self):
+        self.assertNotIn("print(", self.dashboard)
+        self.assertNotIn('return {"error": str(', self.dashboard)
+        self.assertIn(
+            '"mensaje": "No se pudo cargar el dashboard del alumno."',
+            self.dashboard,
+        )
+
+    def test_dashboard_log_does_not_include_exception_message(self):
+        self.assertIn("Student dashboard failed", self.dashboard)
+        self.assertIn("type(exc).__name__", self.dashboard)
+        self.assertNotIn("logger.exception", self.dashboard)
+
+    def test_catalog_routes_do_not_expose_debug_output_or_tracebacks(self):
+        self.assertNotIn("print(", self.catalogs)
+        self.assertNotIn("traceback", self.catalogs)
+        self.assertNotIn('"mensaje": str(', self.catalogs)
+
+    def test_catalog_errors_use_stable_public_messages(self):
+        expected_messages = (
+            "No se pudo crear la materia.",
+            "No se pudo actualizar la materia.",
+            "No se pudo vincular la materia al plan de estudio.",
+            "No se pudo crear el prerrequisito.",
+        )
+
+        for message in expected_messages:
+            with self.subTest(message=message):
+                self.assertIn(message, self.catalogs)
+
+    def test_catalog_logs_only_safe_error_context(self):
+        self.assertIn("Create subject failed", self.catalogs)
+        self.assertIn("Update subject failed", self.catalogs)
+        self.assertIn("Link subject to study plan failed", self.catalogs)
+        self.assertIn("Create prerequisite failed", self.catalogs)
+        self.assertIn("type(exc).__name__", self.catalogs)
+        self.assertNotIn("logger.exception", self.catalogs)
+
+
 if __name__ == "__main__":
     unittest.main()
