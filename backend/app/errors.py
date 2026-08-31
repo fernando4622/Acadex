@@ -30,8 +30,13 @@ Mapa de ERRCODE → HTTP status:
   P0061  Actor no autorizado para calificar   → 403 Forbidden
 """
 
+import logging
+
 from fastapi import HTTPException
 import asyncpg
+
+
+logger = logging.getLogger(__name__)
 
 # ERRCODE PostgreSQL → (HTTP status, código interno legible)
 _PG_ERROR_MAP: dict[str, tuple[int, str]] = {
@@ -76,8 +81,15 @@ def handle_pg_error(e: asyncpg.PostgresError) -> HTTPException:
             detail={"codigo": codigo, "mensaje": str(e.args[0] if e.args else e)},
         )
 
-    # Error no mapeado → 500 con el mensaje original para debugging
+    logger.error(
+        "Unhandled PostgreSQL error: error_type=%s sqlstate=%s",
+        type(e).__name__,
+        sqlstate or "unknown",
+    )
     return HTTPException(
         status_code=500,
-        detail={"codigo": "ERROR_BASE_DE_DATOS", "mensaje": str(e)},
+        detail={
+            "codigo": "ERROR_BASE_DE_DATOS",
+            "mensaje": "No se pudo completar la operación solicitada.",
+        },
     )

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from asyncpg import Connection
 from uuid import UUID
@@ -9,6 +11,7 @@ from app.auth.authorization import (
 from app.middleware.auth import get_current_user, require_docente_o_admin
 
 router = APIRouter(tags=["Resultados"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/grupos/{grupo_id}/resultados")
@@ -144,11 +147,19 @@ async def resultado_dinamico(
             "resultado_final": to_float(row["resultado_final"]),
             "desglose":        row["desglose"],
         }
-    except Exception as e:
-        import traceback
-        print(f"DEBUG ERROR en resultado_dinamico: {e}")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail={"codigo": "ERROR_INTERNO", "mensaje": str(e)})
+    except Exception as exc:
+        logger.error(
+            "Dynamic unit result failed: unit_id=%s error_type=%s",
+            unidad_id,
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "codigo": "ERROR_INTERNO",
+                "mensaje": "No se pudo calcular el resultado de la unidad.",
+            },
+        )
 
 
 @router.get("/inscripciones/{inscripcion_id}/actividades/{unidad_id}")
@@ -183,8 +194,6 @@ async def obtener_detalle_actividades(
            ORDER BY a.ponderacion DESC""",
         inscripcion_id, unidad_id
     )
-    print(f"DEBUG: Actividades: {[dict(a) for a in actividades]}")
-
     return {
         "resultado_final": float(resultado_final),
         "actividades": [dict(a) for a in actividades]
