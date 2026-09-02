@@ -51,12 +51,13 @@ class StudentIdentifierContractTests(unittest.TestCase):
             self.assertNotIn(".matricula", content, source)
             self.assertNotIn("alumno_matricula", content, source)
 
-    def test_report_generator_prefers_current_identifier(self):
+    def test_report_generator_uses_current_identifier(self):
         generator = (
             FRONTEND_ROOT / "utils" / "reportGenerator.js"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("d.no_control ?? d.matricula", generator)
+        self.assertIn("d.no_control,", generator)
+        self.assertNotIn("d.matricula", generator)
 
 
 if __name__ == "__main__":
