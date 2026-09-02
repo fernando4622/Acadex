@@ -2,6 +2,7 @@ import logging
 
 import asyncpg
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from asyncpg import Connection
 from app.database import get_conn
