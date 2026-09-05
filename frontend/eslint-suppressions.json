@@ -1,0 +1,192 @@
+{
+  "src/components/layout/Layout.jsx": {
+    "no-unused-vars": {
+      "count": 6
+    },
+    "react-hooks/static-components": {
+      "count": 2
+    }
+  },
+  "src/components/ui/index.jsx": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/context/AuthContext.jsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    },
+    "react-refresh/only-export-components": {
+      "count": 1
+    }
+  },
+  "src/pages/Administradores.jsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/Alumnos.jsx": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/pages/Auditoria.jsx": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/Calificaciones.jsx": {
+    "no-unused-vars": {
+      "count": 11
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/Carreras.jsx": {
+    "no-unused-vars": {
+      "count": 2
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/Catalogos.jsx": {
+    "no-empty": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 8
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/pages/DocentesAdmin.jsx": {
+    "no-unused-vars": {
+      "count": 3
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/pages/GrupoDetalle.jsx": {
+    "no-unused-vars": {
+      "count": 3
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/Grupos.jsx": {
+    "no-empty": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 2
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/Historial.jsx": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/pages/MapaRiesgo.jsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/MisCalificaciones.jsx": {
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    },
+    "react-hooks/immutability": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/MisGrupoDetalle.jsx": {
+    "no-unused-vars": {
+      "count": 2
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/Periodos.jsx": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/Planes.jsx": {
+    "no-empty": {
+      "count": 1
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/Reportes.jsx": {
+    "no-unused-vars": {
+      "count": 3
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/Resultados.jsx": {
+    "no-unused-vars": {
+      "count": 5
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/TiposActividad.jsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/pages/UsuariosAdmin.jsx": {
+    "no-unused-vars": {
+      "count": 2
+    },
+    "react-hooks/immutability": {
+      "count": 1
+    }
+  },
+  "src/utils/reportGenerator.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  }
+}
