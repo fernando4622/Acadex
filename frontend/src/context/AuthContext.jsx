@@ -3,15 +3,24 @@ import { auth as authApi } from '../api/endpoints'
 
 const AuthContext = createContext(null)
 
-// Checks whether a JWT token string is expired (without validating the signature)
 function isTokenExpired(token) {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    // exp is in seconds; Date.now() is in ms
-    return payload.exp * 1000 < Date.now()
+    const encodedPayload = token.split('.')[1]
+    const normalizedPayload = encodedPayload
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .padEnd(Math.ceil(encodedPayload.length / 4) * 4, '=')
+    const payload = JSON.parse(atob(normalizedPayload))
+
+    return typeof payload.exp !== 'number' || payload.exp * 1000 <= Date.now()
   } catch {
-    return true  // malformed token → treat as expired
+    return true
   }
+}
+
+function clearStoredSession() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
 }
 
 export function AuthProvider({ children }) {
@@ -22,14 +31,19 @@ export function AuthProvider({ children }) {
     const token  = localStorage.getItem('token')
     const stored = localStorage.getItem('user')
 
-    // Bug 2 fix: validate token expiry before restoring session
     if (token && stored && !isTokenExpired(token)) {
-      try { setUser(JSON.parse(stored)) }
-      catch { /* corrupted JSON — clear it */ }
+      try {
+        const storedUser = JSON.parse(stored)
+        if (storedUser.token !== token || !Array.isArray(storedUser.roles)) {
+          clearStoredSession()
+        } else {
+          setUser(storedUser)
+        }
+      } catch {
+        clearStoredSession()
+      }
     } else {
-      // Token missing, expired, or user data corrupted — clear everything
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      clearStoredSession()
     }
 
     setLoading(false)
@@ -50,8 +64,7 @@ export function AuthProvider({ children }) {
   }
 
   const logout = useCallback(() => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    clearStoredSession()
     setUser(null)
   }, [])
 
