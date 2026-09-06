@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from './context/AuthContext'
-import Layout from './components/layout/Layout'
-import { Spinner, EmptyState } from './components/ui'
+import { PrivateRoute, PublicRoute } from './components/routing/RouteGuards'
+import { EmptyState } from './components/ui'
 import { FileText, Map, UserCog, Settings, Bell } from 'lucide-react'
 
 import Login           from './pages/Login'
@@ -36,26 +35,6 @@ import Administradores from './pages/Administradores'
 const AdminStub = ({title, icon}) => (
   <div className="p-8"><EmptyState icon={icon} title={title} description="Este un módulo en desarrollo. Estará disponible en futuras versiones y su UI es stub" /></div>
 )
-
-function PrivateRoute({ children, roles }) {
-  const { user, loading, isAdmin, isDocente, isAlumno } = useAuth()
-  if (loading) return <Spinner/>
-  if (!user)   return <Navigate to="/login" replace/>
-  if (roles) {
-    const ok = roles.includes('ADMIN') && isAdmin
-            || roles.includes('DOCENTE') && isDocente
-            || roles.includes('ALUMNO') && isAlumno
-    if (!ok) return <Navigate to="/" replace/>
-  }
-  return <Layout>{children}</Layout>
-}
-
-function PublicRoute({ children }) {
-  const { user, loading } = useAuth()
-  if (loading) return <Spinner/>
-  if (user)    return <Navigate to="/" replace/>
-  return children
-}
 
 export default function App() {
   return (

@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    setupFiles: './src/testSetup.js',
+    clearMocks: true,
+  },
   server: {
     proxy: {
       // En desarrollo todo /api/* va al backend sin CORS
